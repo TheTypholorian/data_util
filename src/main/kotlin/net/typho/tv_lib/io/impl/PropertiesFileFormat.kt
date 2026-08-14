@@ -44,7 +44,7 @@ class PropertiesFileFormat(
             }
 
             // Apply escape sequences
-            line = DataFileFormat.readEscapeSequences(currentLine, line)
+            line = DataFileFormat.readEscapeSequences({ currentLine }, line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)

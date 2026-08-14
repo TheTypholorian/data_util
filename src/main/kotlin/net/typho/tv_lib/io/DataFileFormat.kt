@@ -23,7 +23,7 @@ interface DataFileFormat<D, P> {
 
     companion object {
         @JvmStatic
-        fun readEscapeSequences(line: Int?, text: String): String {
+        fun readEscapeSequences(line: (() -> Int)?, text: String): String {
             var text = text
             var i = 0
 
@@ -32,7 +32,7 @@ interface DataFileFormat<D, P> {
 
                 if (c == '\\') {
                     if (i == text.length) {
-                        throw DataFileReadingException("Unterminated escape sequence in string at line $line")
+                        throw DataFileReadingException("Unterminated escape sequence in string at line ${line?.invoke()}")
                     }
 
                     var endIndex = i + 1
@@ -47,7 +47,7 @@ interface DataFileFormat<D, P> {
                             endIndex += 4
                             text.substring(i + 1, endIndex).toInt(16).toChar()
                         }
-                        else -> throw DataFileReadingException("Invalid escape sequence '\\$c1' at line $line")
+                        else -> throw DataFileReadingException("Invalid escape sequence '\\$c1' at line ${line?.invoke()}")
                     }
 
                     text = text.substring(0, i - 1) + escaped + text.substring(endIndex)
