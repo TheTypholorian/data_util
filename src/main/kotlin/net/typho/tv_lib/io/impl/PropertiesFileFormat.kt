@@ -40,22 +40,14 @@ class PropertiesFileFormat(
                 continue
             }
 
-            // Fill in custom characters, remove escaped backslashes
-            line = line.replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\t", "\t")
-                .replace("\\\\", "\\")
-
             // Multiline values
-            while (line.endsWith('\\')) {
+            while (line.endsWith('\\') && !line.endsWith("\\\\")) {
                 index++
-                line = line.substring(0, line.length - 1) + lines.next()
-                    .trimStart()
-                    .replace("\\n", "\n")
-                    .replace("\\r", "\r")
-                    .replace("\\t", "\t")
-                    .replace("\\\\", "\\")
+                line = line.substring(0, line.length - 1) + lines.next().trimStart()
             }
+
+            // Apply escape sequences
+            line = DataFileFormat.applyEscapeSequences(line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)
@@ -97,6 +89,10 @@ class PropertiesFileFormat(
             val value = checkComment(value) ?: "null"
 
             if (key !is CharSequence) {
+                throw IllegalArgumentException("Expected a CharSequence key, got ${key.javaClass.name}")
+            }
+
+            if (key.any { it.isWhitespace() }) {
                 throw IllegalArgumentException("Expected a CharSequence key, got ${key.javaClass.name}")
             }
 

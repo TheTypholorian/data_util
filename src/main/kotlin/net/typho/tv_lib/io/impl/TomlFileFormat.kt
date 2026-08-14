@@ -96,11 +96,8 @@ class TomlFileFormat(
                 continue
             }
 
-            // Fill in custom characters, remove escaped backslashes
-            line = line.replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\t", "\t")
-                .replace("\\\\", "\\")
+            // Apply escape sequences
+            line = DataFileFormat.applyEscapeSequences(line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)

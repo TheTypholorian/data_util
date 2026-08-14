@@ -23,6 +23,16 @@ interface DataFileFormat {
 
     companion object {
         @JvmStatic
+        fun applyEscapeSequences(text: String): String {
+            return text.replace("\\b", "\b")
+                .replace("\\t", "\t")
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+        }
+
+        @JvmStatic
         fun trimQuotes(text: String): String {
             return if (text.startsWith('"') && text.endsWith('"')) {
                 text.substring(1, text.length - 1)
