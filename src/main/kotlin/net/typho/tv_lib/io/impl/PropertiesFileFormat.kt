@@ -1,5 +1,6 @@
 package net.typho.tv_lib.io.impl
 
+import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
 import net.typho.tv_lib.io.DataObjectSerializer.Companion.flatten
 import net.typho.tv_lib.io.FileFormatException

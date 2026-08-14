@@ -10,6 +10,7 @@ import net.typho.tv_lib.io.impl.token.ColonToken
 import net.typho.tv_lib.io.impl.token.CommaToken
 import net.typho.tv_lib.io.impl.token.FloatToken
 import net.typho.tv_lib.io.impl.token.IntToken
+import net.typho.tv_lib.io.impl.token.LongToken
 import net.typho.tv_lib.io.impl.token.NullToken
 import net.typho.tv_lib.io.impl.token.ObjectCloseToken
 import net.typho.tv_lib.io.impl.token.ObjectOpenToken
@@ -144,7 +145,13 @@ class JsonFileFormat @JvmOverloads constructor(
                         if (float || exponent) {
                             tokens.add(FloatToken(line, input.substring(numberStart, index).toFloat()))
                         } else {
-                            tokens.add(IntToken(line, input.substring(numberStart, index).toInt()))
+                            val value = input.substring(numberStart, index).toLong()
+
+                            if (value shr 32 == 0L) {
+                                tokens.add(IntToken(line, value.toInt()))
+                            } else {
+                                tokens.add(LongToken(line, value))
+                            }
                         }
 
                         if (c1 == '\n') {
@@ -226,7 +233,7 @@ class JsonFileFormat @JvmOverloads constructor(
         val value = when (val token = iterator.next()) {
             is ArrayOpenToken -> readList(token.line, iterator)
             is ObjectOpenToken -> readObject(token.line, iterator)
-            is PrimitiveToken<*> -> token.content
+            is PrimitiveToken<*> -> token.value
             else -> throw FileFormatException("Expected an array, object, or primitive but got $token at line ${token.line}")
         }
 
@@ -238,7 +245,7 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     // reads an array/list from the iterator until a matching ArrayCloseToken
-    private fun readList(line: Int, tokens: Iterator<Token>): List<Any?> {
+    private fun readList(line: Int?, tokens: Iterator<Token>): List<Any?> {
         val list = mutableListOf<Any?>()
 
         while (tokens.hasNext()) {
@@ -246,7 +253,7 @@ class JsonFileFormat @JvmOverloads constructor(
                 is ArrayCloseToken -> return list
                 is ArrayOpenToken -> list.add(readList(token.line, tokens))
                 is ObjectOpenToken -> list.add(readObject(token.line, tokens))
-                is PrimitiveToken<*> -> list.add(token.content)
+                is PrimitiveToken<*> -> list.add(token.value)
                 else -> throw FileFormatException("Expected an array, object, or primitive but got $token in array at line ${token.line}")
             }
 
@@ -261,7 +268,7 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     // reads an object from the iterator until a matching ObjectCloseToken
-    private fun readObject(line: Int, tokens: Iterator<Token>): Map<String, Any?> {
+    private fun readObject(line: Int?, tokens: Iterator<Token>): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
 
         while (tokens.hasNext()) {
@@ -271,7 +278,7 @@ class JsonFileFormat @JvmOverloads constructor(
                 return map
             }
 
-            val key = (keyToken as? StringToken)?.content ?: throw FileFormatException("Expected string but got $keyToken in object at line ${keyToken.line}")
+            val key = (keyToken as? StringToken)?.value ?: throw FileFormatException("Expected string but got $keyToken in object at line ${keyToken.line}")
 
             if (map.containsKey(key)) {
                 throw FileFormatException("Duplicate object entry '$key' in object at line ${keyToken.line}")
@@ -286,7 +293,7 @@ class JsonFileFormat @JvmOverloads constructor(
             val value = when (val valueToken = tokens.next()) {
                 is ArrayOpenToken -> readList(valueToken.line, tokens)
                 is ObjectOpenToken -> readObject(valueToken.line, tokens)
-                is PrimitiveToken<*> -> valueToken.content
+                is PrimitiveToken<*> -> valueToken.value
                 else -> throw FileFormatException("Expected an array, object, or primitive but got $valueToken in object at line ${valueToken.line}")
             }
 
@@ -304,19 +311,119 @@ class JsonFileFormat @JvmOverloads constructor(
 
     override fun write(data: Any?): String {
         val tokens = mutableListOf<Token>()
+
+        writeValue(data, tokens)
+
+        return buildString {
+            if (prettyPrint) {
+                var indent = 0
+
+                for (token in tokens) {
+                    when (token) {
+                        is StringToken -> {
+                            append('"')
+                            append(token.value)
+                            append('"')
+                        }
+                        is PrimitiveToken<*> -> append(token.value)
+                        is ArrayOpenToken -> {
+                            indent++
+                            append('[')
+                            append('\n')
+                            append("\t".repeat(indent))
+                        }
+                        is ArrayCloseToken -> {
+                            indent--
+                            append('\n')
+                            append("\t".repeat(indent))
+                            append(']')
+                        }
+                        is ObjectOpenToken -> {
+                            indent++
+                            append('{')
+                            append('\n')
+                            append("\t".repeat(indent))
+                        }
+                        is ObjectCloseToken -> {
+                            indent--
+                            append('\n')
+                            append("\t".repeat(indent))
+                            append('}')
+                        }
+                        is ColonToken -> append(": ")
+                        is CommaToken -> {
+                            append(',')
+                            append('\n')
+                            append("\t".repeat(indent))
+                        }
+                        else -> throw FileFormatException("Illegal token $token")
+                    }
+                }
+            } else {
+                for (token in tokens) {
+                    when (token) {
+                        is StringToken -> {
+                            append('"')
+                            append(token.value)
+                            append('"')
+                        }
+                        is PrimitiveToken<*> -> append(token.value)
+                        is ArrayOpenToken -> append('[')
+                        is ArrayCloseToken -> append(']')
+                        is ObjectOpenToken -> append('{')
+                        is ObjectCloseToken -> append('}')
+                        is ColonToken -> append(':')
+                        is CommaToken -> append(',')
+                        else -> throw FileFormatException("Illegal token $token")
+                    }
+                }
+            }
+        }
     }
 
     private fun writeValue(value: Any?, tokens: MutableList<Token>) {
         when (value) {
             null -> tokens.add(NullToken())
-            is Boolean -> tokens.add(BoolToken(content = value))
-            is Float -> tokens.add(FloatToken(content = value))
-            is Int -> tokens.add(IntToken(content = value))
-            is String -> tokens.add(StringToken(content = value))
+            is Boolean -> tokens.add(BoolToken(value = value))
+            is Double -> tokens.add(FloatToken(value = value.toFloat()))
+            is Float -> tokens.add(FloatToken(value = value))
+            is Long -> tokens.add(LongToken(value = value))
+            is Int -> tokens.add(IntToken(value = value))
+            is Short -> tokens.add(IntToken(value = value.toInt()))
+            is Byte -> tokens.add(IntToken(value = value.toInt()))
+            is String -> tokens.add(StringToken(value = value))
             is List<*> -> {
                 tokens.add(ArrayOpenToken())
+
+                val iterator = value.iterator()
+
+                while (iterator.hasNext()) {
+                    writeValue(iterator.next(), tokens)
+
+                    if (iterator.hasNext()) {
+                        tokens.add(CommaToken())
+                    }
+                }
+
+                tokens.add(ArrayCloseToken())
             }
             is Map<*, *> -> {
+                tokens.add(ObjectOpenToken())
+
+                val iterator = value.iterator()
+
+                while (iterator.hasNext()) {
+                    val entry = iterator.next()
+                    writeValue(entry.key, tokens)
+                    tokens.add(ColonToken())
+                    writeValue(entry.value, tokens)
+
+                    if (iterator.hasNext()) {
+                        tokens.add(CommaToken())
+                    }
+                }
+
+                tokens.add(ObjectCloseToken())
             }
             else -> throw FileFormatException("Unsupported json value $value")
         }

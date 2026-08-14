@@ -1,10 +1,10 @@
 package net.typho.tv_lib.io.impl.token
 
-class FloatToken(
+class LongToken(
     override val line: Int? = null,
-    override val value: Float
-) : PrimitiveToken<Float> {
+    override val value: Long
+) : PrimitiveToken<Long> {
     override fun toString(): String {
-        return "Float($value)"
+        return "Long($value)"
     }
 }
