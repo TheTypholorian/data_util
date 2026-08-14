@@ -1,20 +1,16 @@
 package net.typho.tv_lib.io.impl
 
-import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
 import net.typho.tv_lib.io.DataObjectSerializer.Companion.flatten
-import net.typho.tv_lib.io.DataWithComment
 import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.StringDataFileFormat
 
 class PropertiesFileFormat(
     @JvmField
     val writeComments: Boolean = true,
     @JvmField
-    /**
-     * What delimiter to use ('=' or ':') when *writing* properties files
-     */
     val delimiter: Char = '='
-) : DataFileFormat {
+) : StringDataFileFormat<Map<String, String>> {
     override val extension: String
         get() = "properties"
     override val serializers = mutableListOf<DataObjectSerializer<Any>>()
@@ -70,31 +66,15 @@ class PropertiesFileFormat(
         return map
     }
 
-    override fun write(data: Any): String {
+    override fun write(data: Map<String, String>): String {
         // Flatten all values
-        val data = serializers.flatten(data) ?: return ""
-
-        if (data !is Map<*, *>) {
-            throw IllegalArgumentException("Property file format requires a Map input, got ${data.javaClass.name}")
-        }
+        val data = (serializers.flatten(data) ?: return "") as Map<*, *>
 
         val builder = StringBuilder()
 
-        // Handle comments
-        fun checkComment(value: Any?): Any? {
-            return if (value is DataWithComment) {
-                if (writeComments) {
-                    builder.appendLine("#${value.comment}")
-                }
-
-                value.value
-            } else value
-        }
-
         data.forEach { (key, value) ->
-            // Key comments should run before value comments
-            val key = checkComment(key) ?: throw NullPointerException("Property file keys must not be null")
-            val value = checkComment(value) ?: "null"
+            key!!
+            val value = value ?: "null"
 
             if (key !is CharSequence) {
                 throw IllegalArgumentException("Expected a CharSequence key, got ${key.javaClass.name}")
