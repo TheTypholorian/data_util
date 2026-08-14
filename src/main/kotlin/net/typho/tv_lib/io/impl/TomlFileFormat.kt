@@ -9,7 +9,7 @@ class TomlFileFormat(
 ) : StringDataFileFormat<Map<String, Any>> {
     override val extension: String
         get() = "toml"
-    override val serializers = mutableListOf<DataObjectSerializer<Any>>()
+    override val serializers: MutableList<DataObjectSerializer<out Any>> = mutableListOf()
 
     override fun read(input: String): Map<String, Any> {
         var input = input

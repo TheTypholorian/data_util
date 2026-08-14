@@ -1,13 +1,10 @@
-import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 import net.typho.tv_lib.io.impl.JsonFileFormat
 import kotlin.random.Random
-import kotlin.system.measureTimeMillis
 
 object JsonTest {
     val random = Random(5)
@@ -16,10 +13,13 @@ object JsonTest {
     fun main(args: Array<String>) {
         val format = JsonFileFormat(
             allowComments = true,
-            prettyPrint = false
+            prettyPrint = true
         )
         val obj = createObject(0)
 
+        println(format.write(obj))
+
+        /*
         println("tv: " + measureTimeMillis {
             format.write(obj)
         } + " ms for write")
@@ -35,6 +35,7 @@ object JsonTest {
         println("gson: " + measureTimeMillis {
             JsonParser.parseString(written)
         } + " ms for read")
+         */
     }
 
     private fun toGson(value: Any?): JsonElement {
@@ -86,7 +87,7 @@ object JsonTest {
     private fun createObject(depth: Int): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
 
-        repeat(random.nextInt(20)) {
+        repeat(random.nextInt(10)) {
             map[randomString(depth + 1)] = createAny(depth + 1)
         }
 

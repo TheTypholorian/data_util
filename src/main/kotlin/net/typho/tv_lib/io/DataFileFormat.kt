@@ -5,7 +5,7 @@ import java.io.OutputStream
 
 interface DataFileFormat<D, P> {
     val extension: String
-    val serializers: MutableList<DataObjectSerializer<Any>>
+    val serializers: MutableList<DataObjectSerializer<out Any>>
 
     fun read(input: D): P
 

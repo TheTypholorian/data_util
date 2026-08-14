@@ -2,8 +2,8 @@ package net.typho.tv_lib.io.impl
 
 import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
-import net.typho.tv_lib.io.DataObjectSerializer.Companion.flatten
 import net.typho.tv_lib.io.DataFileReadingException
+import net.typho.tv_lib.io.DataObjectSerializer.Companion.tryWrite
 import net.typho.tv_lib.io.StringDataFileFormat
 
 class PropertiesFileFormat(
@@ -14,7 +14,7 @@ class PropertiesFileFormat(
 ) : StringDataFileFormat<Map<String, String>> {
     override val extension: String
         get() = "properties"
-    override val serializers = mutableListOf<DataObjectSerializer<Any>>()
+    override val serializers: MutableList<DataObjectSerializer<out Any>> = mutableListOf()
 
     init {
         if (delimiter != '=' && delimiter != ':') {
@@ -60,14 +60,11 @@ class PropertiesFileFormat(
     }
 
     override fun write(data: Map<String, String>): String {
-        // Flatten all values
-        val data = (serializers.flatten(data) ?: return "") as Map<*, *>
-
         val builder = StringBuilder()
 
         data.forEach { (key, value) ->
-            key!!
-            val value = value ?: "null"
+            val key = serializers.tryWrite(key)!!
+            val value = serializers.tryWrite(value) ?: "null"
 
             if (key !is CharSequence) {
                 throw IllegalArgumentException("Expected a CharSequence key, got ${key.javaClass.name}")

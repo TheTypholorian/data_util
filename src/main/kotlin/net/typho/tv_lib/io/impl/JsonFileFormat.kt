@@ -4,6 +4,7 @@ import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
 import net.typho.tv_lib.io.DataFileReadingException
 import net.typho.tv_lib.io.DataFileWritingException
+import net.typho.tv_lib.io.DataObjectSerializer.Companion.tryWrite
 import net.typho.tv_lib.io.StringDataFileFormat
 import net.typho.tv_lib.io.impl.token.ArrayCloseToken
 import net.typho.tv_lib.io.impl.token.ArrayOpenToken
@@ -28,7 +29,7 @@ class JsonFileFormat @JvmOverloads constructor(
 ) : StringDataFileFormat<Any> {
     override val extension: String
         get() = "json"
-    override val serializers = mutableListOf<DataObjectSerializer<Any>>()
+    override val serializers: MutableList<DataObjectSerializer<out Any>> = mutableListOf()
 
     override fun read(input: String): Any {
         val tokens = arrayListOf<Token>()
@@ -328,6 +329,8 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     override fun write(data: Any): String {
+        val data = serializers.tryWrite(data)
+
         if (data !is List<*> && data !is Map<*, *>) {
             throw DataFileWritingException("Jsons must be either a list or a map, got $data")
         }
@@ -359,7 +362,7 @@ class JsonFileFormat @JvmOverloads constructor(
                     val iterator = value.iterator()
 
                     while (iterator.hasNext()) {
-                        writeValue(iterator.next(), depth + 1, builder)
+                        writeValue(serializers.tryWrite(iterator.next()), depth + 1, builder)
 
                         if (iterator.hasNext()) {
                             builder.append(',')
@@ -386,7 +389,13 @@ class JsonFileFormat @JvmOverloads constructor(
 
                     while (iterator.hasNext()) {
                         val entry = iterator.next()
-                        writeValue(entry.key, depth + 1, builder)
+                        val key = serializers.tryWrite(entry.key)
+
+                        if (key !is String) {
+                            throw DataFileWritingException("Object keys must be strings")
+                        }
+
+                        writeValue(key, depth + 1, builder)
 
                         if (prettyPrint) {
                             builder.append(": ")
@@ -394,7 +403,7 @@ class JsonFileFormat @JvmOverloads constructor(
                             builder.append(':')
                         }
 
-                        writeValue(entry.value, depth + 1, builder)
+                        writeValue(serializers.tryWrite(entry.value), depth + 1, builder)
 
                         if (iterator.hasNext()) {
                             builder.append(',')

@@ -21,7 +21,7 @@ interface DataObjectSerializer<T> {
         }
 
         @Suppress("UNCHECKED_CAST")
-        private fun Iterable<DataObjectSerializer<*>>.tryWrite(data: Any?): Any? {
+        fun Iterable<DataObjectSerializer<*>>.tryWrite(data: Any?): Any? {
             return data?.let { get(data)?.write(data) ?: data }
         }
 
@@ -36,15 +36,6 @@ interface DataObjectSerializer<T> {
 
             override fun write(data: T): Any {
                 return write.invoke(data)
-            }
-        }
-
-        @JvmStatic
-        fun Iterable<DataObjectSerializer<*>>.flatten(input: Any?): Any? {
-            return when (input) {
-                is Map<*, *> -> input.mapKeys { entry -> tryWrite(entry.key) }.mapValues { entry -> tryWrite(entry.value) }
-                is Collection<*> -> input.map { tryWrite(it) }
-                else -> tryWrite(input)
             }
         }
     }
