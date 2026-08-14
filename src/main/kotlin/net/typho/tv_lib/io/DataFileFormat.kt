@@ -75,11 +75,12 @@ interface DataFileFormat<D, P> {
                     } else null
                 }
 
-                if (s != null) {
+                if (s == null) {
+                    i++
+                } else {
                     text = text.substring(0, i) + s + text.substring(i + 1)
+                    i += s.length
                 }
-
-                i++
             }
 
             return text
