@@ -1,6 +1,6 @@
 package net.typho.tv_lib.io
 
-class FileFormatException : RuntimeException {
+class DataFileReadingException : RuntimeException {
     constructor() : super()
 
     constructor(message: String) : super(message)

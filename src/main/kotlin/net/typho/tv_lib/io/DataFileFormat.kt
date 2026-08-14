@@ -23,13 +23,66 @@ interface DataFileFormat<D, P> {
 
     companion object {
         @JvmStatic
-        fun applyEscapeSequences(text: String): String {
-            return text.replace("\\b", "\b")
-                .replace("\\t", "\t")
-                .replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\")
+        fun readEscapeSequences(line: Int?, text: String): String {
+            var text = text
+            var i = 0
+
+            while (i < text.length) {
+                val c = text[i++]
+
+                if (c == '\\') {
+                    if (i == text.length) {
+                        throw DataFileReadingException("Unterminated escape sequence in string at line $line")
+                    }
+
+                    var endIndex = i + 1
+                    val escaped = when (val c1 = text[i]) {
+                        '"', '\\', '/' -> c1
+                        'b' -> '\b'
+                        'f' -> '\u000c'
+                        'n' -> '\n'
+                        'r' -> '\r'
+                        't' -> '\t'
+                        'u' -> {
+                            endIndex += 4
+                            text.substring(i + 1, endIndex).toInt(16).toChar()
+                        }
+                        else -> throw DataFileReadingException("Invalid escape sequence '\\$c1' at line $line")
+                    }
+
+                    text = text.substring(0, i - 1) + escaped + text.substring(endIndex)
+                }
+            }
+
+            return text
+        }
+
+        @JvmStatic
+        fun writeEscapeSequences(text: String): String {
+            var text = text
+            var i = 0
+
+            while (i < text.length) {
+                val s = when (val c = text[i]) {
+                    '"', '\\', '/' -> "\\$c"
+                    '\b' -> "\\b"
+                    '\u000c' -> "\\f"
+                    '\n' -> "\\n"
+                    '\r' -> "\\r"
+                    '\t' -> "\\t"
+                    else -> if (c.isISOControl() || !c.isDefined() || c.category == CharCategory.PRIVATE_USE || c.category == CharCategory.FORMAT) {
+                        "\\u" + c.code.toString(16).padStart(4, '0')
+                    } else null
+                }
+
+                if (s != null) {
+                    text = text.substring(0, i) + s + text.substring(i + 1)
+                }
+
+                i++
+            }
+
+            return text
         }
 
         @JvmStatic

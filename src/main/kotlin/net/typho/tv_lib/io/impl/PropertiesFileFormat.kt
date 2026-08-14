@@ -3,7 +3,7 @@ package net.typho.tv_lib.io.impl
 import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
 import net.typho.tv_lib.io.DataObjectSerializer.Companion.flatten
-import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.DataFileReadingException
 import net.typho.tv_lib.io.StringDataFileFormat
 
 class PropertiesFileFormat(
@@ -24,12 +24,12 @@ class PropertiesFileFormat(
 
     override fun read(input: String): Map<String, String> {
         val map = mutableMapOf<String, String>()
-        var index = 0
+        var lineIndex = 0
 
         val lines = input.split('\n').iterator()
 
         while (lines.hasNext()) {
-            val currentIndex = index++
+            val currentLine = lineIndex++
             var line = lines.next().trimStart()
 
             // If the line is empty or a comment, skip
@@ -39,18 +39,18 @@ class PropertiesFileFormat(
 
             // Multiline values
             while (line.endsWith('\\') && !line.endsWith("\\\\")) {
-                index++
+                lineIndex++
                 line = line.substring(0, line.length - 1) + lines.next().trimStart()
             }
 
             // Apply escape sequences
-            line = DataFileFormat.applyEscapeSequences(line)
+            line = DataFileFormat.readEscapeSequences(currentLine, line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)
 
             if (tokens.size < 2) {
-                throw FileFormatException("Line $currentIndex is missing a '=' or ':' delimiter: '$line'")
+                throw DataFileReadingException("Line $currentLine is missing a '=' or ':' delimiter: '$line'")
             }
 
             map[tokens.first().trimEnd()] = tokens.last().trimStart()

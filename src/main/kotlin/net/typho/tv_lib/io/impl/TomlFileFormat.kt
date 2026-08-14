@@ -2,7 +2,7 @@ package net.typho.tv_lib.io.impl
 
 import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
-import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.DataFileReadingException
 import net.typho.tv_lib.io.StringDataFileFormat
 
 class TomlFileFormat(
@@ -32,7 +32,7 @@ class TomlFileFormat(
                 if (!backslash) {
                     if (input.regionMatches(i, "\"\"\"", 0, 3, true)) {
                         if (inMultilineSingleQuotes) {
-                            throw FileFormatException("Cannot have triple quotes in a multiline single quote string (on line $line)")
+                            throw DataFileReadingException("Cannot have triple quotes in a multiline single quote string (on line $line)")
                         }
 
                         inMultilineDoubleQuotes = !inMultilineDoubleQuotes
@@ -45,7 +45,7 @@ class TomlFileFormat(
                         }.trimStart()
                     } else if (input.regionMatches(i, "'''", 0, 3, true)) {
                         if (inMultilineDoubleQuotes) {
-                            throw FileFormatException("Cannot have triple single quotes in a multiline double quote string (on line $line)")
+                            throw DataFileReadingException("Cannot have triple single quotes in a multiline double quote string (on line $line)")
                         }
 
                         inMultilineSingleQuotes = !inMultilineSingleQuotes
@@ -98,13 +98,13 @@ class TomlFileFormat(
             }
 
             // Apply escape sequences
-            line = DataFileFormat.applyEscapeSequences(line)
+            line = DataFileFormat.readEscapeSequences(null, line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)
 
             if (tokens.size < 2) {
-                throw FileFormatException("Line $currentIndex is missing an '=' delimiter: '$line'")
+                throw DataFileReadingException("Line $currentIndex is missing an '=' delimiter: '$line'")
             }
 
             map[DataFileFormat.trimQuotes(tokens.first().trim())] = DataFileFormat.trimQuotes(tokens.last().trim())

@@ -1,7 +1,9 @@
 package net.typho.tv_lib.io.impl
 
+import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
-import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.DataFileReadingException
+import net.typho.tv_lib.io.DataFileWritingException
 import net.typho.tv_lib.io.StringDataFileFormat
 import net.typho.tv_lib.io.impl.token.ArrayCloseToken
 import net.typho.tv_lib.io.impl.token.ArrayOpenToken
@@ -23,12 +25,12 @@ class JsonFileFormat @JvmOverloads constructor(
     val allowComments: Boolean = false,
     @JvmField
     val prettyPrint: Boolean = false
-) : StringDataFileFormat<Any?> {
+) : StringDataFileFormat<Any> {
     override val extension: String
         get() = "json"
     override val serializers = mutableListOf<DataObjectSerializer<Any>>()
 
-    override fun read(input: String): Any? {
+    override fun read(input: String): Any {
         val tokens = arrayListOf<Token>()
         var line = 0
         var index = 0
@@ -104,7 +106,7 @@ class JsonFileFormat @JvmOverloads constructor(
                             if (jumpToAfterNext("*/")) {
                                 continue
                             } else {
-                                throw FileFormatException("Multiline comment at line $line never closes")
+                                throw DataFileReadingException("Multiline comment at line $line never closes")
                             }
                         }
                         '/' -> {
@@ -120,7 +122,7 @@ class JsonFileFormat @JvmOverloads constructor(
 
             // numbers
             if (c.isDigit() || c == '-' || c == '.') {
-                val numberStart = index
+                val numberStart = index++
                 var float = false
                 var exponent = false
 
@@ -164,7 +166,7 @@ class JsonFileFormat @JvmOverloads constructor(
                     index++
                 }
 
-                throw FileFormatException("Unterminated number at line $line")
+                throw DataFileReadingException("Unterminated number at line $line")
             }
 
             when (c) {
@@ -209,9 +211,16 @@ class JsonFileFormat @JvmOverloads constructor(
                         val c1 = input[index]
 
                         when (c1) {
-                            '\n' -> throw FileFormatException("Unterminated string at line $line")
+                            '\n' -> throw DataFileReadingException("Unterminated string at line $line")
+                            '\\' -> {
+                                index++
+
+                                if (index >= input.length) {
+                                    throw DataFileReadingException("Unterminated escape sequence at line $line")
+                                }
+                            }
                             '"' -> {
-                                tokens.add(StringToken(line, input.substring(stringStart, index)))
+                                tokens.add(StringToken(line, DataFileFormat.readEscapeSequences(line, input.substring(stringStart, index))))
                                 index++
                                 continue@mainLoop
                             }
@@ -221,7 +230,7 @@ class JsonFileFormat @JvmOverloads constructor(
                     }
                 }
 
-                else -> throw FileFormatException("Illegal character '$c' at line $line")
+                else -> throw DataFileReadingException("Illegal character '$c' at line $line")
             }
 
             index++
@@ -230,15 +239,18 @@ class JsonFileFormat @JvmOverloads constructor(
         // parse the tokens
         val iterator = tokens.iterator()
 
+        if (!iterator.hasNext()) {
+            throw DataFileReadingException("Expected an array or object but got nothing at line 0")
+        }
+
         val value = when (val token = iterator.next()) {
             is ArrayOpenToken -> readList(token.line, iterator)
             is ObjectOpenToken -> readObject(token.line, iterator)
-            is PrimitiveToken<*> -> token.value
-            else -> throw FileFormatException("Expected an array, object, or primitive but got $token at line ${token.line}")
+            else -> throw DataFileReadingException("Expected an array or object but got $token at line ${token.line}")
         }
 
         if (iterator.hasNext()) {
-            throw FileFormatException("Extra tokens after content at line $line")
+            throw DataFileReadingException("Extra tokens after content at line $line")
         }
 
         return value
@@ -249,22 +261,28 @@ class JsonFileFormat @JvmOverloads constructor(
         val list = mutableListOf<Any?>()
 
         while (tokens.hasNext()) {
-            when (val token = tokens.next()) {
+            val token = tokens.next()
+
+            when (token) {
                 is ArrayCloseToken -> return list
                 is ArrayOpenToken -> list.add(readList(token.line, tokens))
                 is ObjectOpenToken -> list.add(readObject(token.line, tokens))
                 is PrimitiveToken<*> -> list.add(token.value)
-                else -> throw FileFormatException("Expected an array, object, or primitive but got $token in array at line ${token.line}")
+                else -> throw DataFileReadingException("Expected an array, object, or primitive but got $token in array at line ${token.line}")
+            }
+
+            if (!tokens.hasNext()) {
+                throw DataFileReadingException("Expected comma or array end but got nothing in array at line ${token.line}")
             }
 
             when (val commaToken = tokens.next()) {
                 is CommaToken -> {}
                 is ArrayCloseToken -> return list
-                else -> throw FileFormatException("Expected comma or array end but got $commaToken in array at line ${commaToken.line}")
+                else -> throw DataFileReadingException("Expected comma or array end but got $commaToken in array at line ${commaToken.line}")
             }
         }
 
-        throw FileFormatException("Unterminated array at line $line")
+        throw DataFileReadingException("Unterminated array at line $line")
     }
 
     // reads an object from the iterator until a matching ObjectCloseToken
@@ -278,23 +296,23 @@ class JsonFileFormat @JvmOverloads constructor(
                 return map
             }
 
-            val key = (keyToken as? StringToken)?.value ?: throw FileFormatException("Expected string but got $keyToken in object at line ${keyToken.line}")
+            val key = (keyToken as? StringToken)?.value ?: throw DataFileReadingException("Expected string but got $keyToken in object at line ${keyToken.line}")
 
             if (map.containsKey(key)) {
-                throw FileFormatException("Duplicate object entry '$key' in object at line ${keyToken.line}")
+                throw DataFileReadingException("Duplicate object entry '$key' in object at line ${keyToken.line}")
             }
 
             val colonToken = tokens.next()
 
             if (colonToken !is ColonToken) {
-                throw FileFormatException("Expected colon but got $colonToken in object at line ${colonToken.line}")
+                throw DataFileReadingException("Expected colon but got $colonToken in object at line ${colonToken.line}")
             }
 
             val value = when (val valueToken = tokens.next()) {
                 is ArrayOpenToken -> readList(valueToken.line, tokens)
                 is ObjectOpenToken -> readObject(valueToken.line, tokens)
                 is PrimitiveToken<*> -> valueToken.value
-                else -> throw FileFormatException("Expected an array, object, or primitive but got $valueToken in object at line ${valueToken.line}")
+                else -> throw DataFileReadingException("Expected an array, object, or primitive but got $valueToken in object at line ${valueToken.line}")
             }
 
             map[key] = value
@@ -302,15 +320,19 @@ class JsonFileFormat @JvmOverloads constructor(
             when (val commaToken = tokens.next()) {
                 is CommaToken -> {}
                 is ObjectCloseToken -> return map
-                else -> throw FileFormatException("Expected comma or object end but got $commaToken in object at line ${commaToken.line}")
+                else -> throw DataFileReadingException("Expected comma or object end but got $commaToken in object at line ${commaToken.line}")
             }
         }
 
-        throw FileFormatException("Unterminated object at line $line")
+        throw DataFileReadingException("Unterminated object at line $line")
     }
 
-    override fun write(data: Any?): String {
+    override fun write(data: Any): String {
         val tokens = mutableListOf<Token>()
+
+        if (data !is List<*> && data !is Map<*, *>) {
+            throw DataFileWritingException("Jsons must be either a list or a map, got $data")
+        }
 
         writeValue(data, tokens)
 
@@ -322,7 +344,7 @@ class JsonFileFormat @JvmOverloads constructor(
                     when (token) {
                         is StringToken -> {
                             append('"')
-                            append(token.value)
+                            append(DataFileFormat.writeEscapeSequences(token.value))
                             append('"')
                         }
                         is PrimitiveToken<*> -> append(token.value)
@@ -356,7 +378,7 @@ class JsonFileFormat @JvmOverloads constructor(
                             append('\n')
                             append("\t".repeat(indent))
                         }
-                        else -> throw FileFormatException("Illegal token $token")
+                        else -> throw DataFileWritingException("Illegal token $token")
                     }
                 }
             } else {
@@ -364,7 +386,7 @@ class JsonFileFormat @JvmOverloads constructor(
                     when (token) {
                         is StringToken -> {
                             append('"')
-                            append(token.value)
+                            append(DataFileFormat.writeEscapeSequences(token.value))
                             append('"')
                         }
                         is PrimitiveToken<*> -> append(token.value)
@@ -374,7 +396,7 @@ class JsonFileFormat @JvmOverloads constructor(
                         is ObjectCloseToken -> append('}')
                         is ColonToken -> append(':')
                         is CommaToken -> append(',')
-                        else -> throw FileFormatException("Illegal token $token")
+                        else -> throw DataFileWritingException("Illegal token $token")
                     }
                 }
             }
@@ -425,7 +447,7 @@ class JsonFileFormat @JvmOverloads constructor(
 
                 tokens.add(ObjectCloseToken())
             }
-            else -> throw FileFormatException("Unsupported json value $value")
+            else -> throw DataFileWritingException("Unsupported json value $value")
         }
     }
 }

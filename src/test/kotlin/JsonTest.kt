@@ -8,18 +8,10 @@ object JsonTest {
             prettyPrint = true
         )
         val testText = """
-            {
-            // test comment
-                "hello": "bye",
-                "abc": /* another test comment */ 123,
-                "def": 456.789, // a third test comment
-                "mno": [
-                    "m", "n", "o"
-                ]
-            }
+        [
+            "\n\r\t\u0001\uEEEE"
+        ]
         """
-        val output = format.read(testText)
-        println(output)
-        println(format.write(output))
+        println(format.write(format.read(testText)))
     }
 }
