@@ -19,6 +19,7 @@ import net.typho.tv_lib.io.impl.token.ObjectOpenToken
 import net.typho.tv_lib.io.impl.token.PrimitiveToken
 import net.typho.tv_lib.io.impl.token.StringToken
 import net.typho.tv_lib.io.impl.token.Token
+import sun.text.normalizer.UTF16.append
 
 class JsonFileFormat @JvmOverloads constructor(
     @JvmField
@@ -339,9 +340,10 @@ class JsonFileFormat @JvmOverloads constructor(
         return buildString {
             if (prettyPrint) {
                 var indent = 0
+                val iterator = tokens.listIterator()
 
-                for (token in tokens) {
-                    when (token) {
+                while (iterator.hasNext()) {
+                    when (val token = iterator.next()) {
                         is StringToken -> {
                             append('"')
                             append(DataFileFormat.writeEscapeSequences(token.value))
@@ -349,10 +351,16 @@ class JsonFileFormat @JvmOverloads constructor(
                         }
                         is PrimitiveToken<*> -> append(token.value)
                         is ArrayOpenToken -> {
-                            indent++
-                            append('[')
-                            append('\n')
-                            append("\t".repeat(indent))
+                            if (tokens[iterator.nextIndex()] is ArrayCloseToken) {
+                                append('[')
+                                append(']')
+                                iterator.next()
+                            } else {
+                                indent++
+                                append('[')
+                                append('\n')
+                                append("\t".repeat(indent))
+                            }
                         }
                         is ArrayCloseToken -> {
                             indent--
@@ -361,10 +369,16 @@ class JsonFileFormat @JvmOverloads constructor(
                             append(']')
                         }
                         is ObjectOpenToken -> {
-                            indent++
-                            append('{')
-                            append('\n')
-                            append("\t".repeat(indent))
+                            if (tokens[iterator.nextIndex()] is ObjectCloseToken) {
+                                append('{')
+                                append('}')
+                                iterator.next()
+                            } else {
+                                indent++
+                                append('{')
+                                append('\n')
+                                append("\t".repeat(indent))
+                            }
                         }
                         is ObjectCloseToken -> {
                             indent--

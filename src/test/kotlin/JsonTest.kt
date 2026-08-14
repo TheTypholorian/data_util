@@ -2,7 +2,7 @@ import net.typho.tv_lib.io.impl.JsonFileFormat
 import kotlin.random.Random
 
 object JsonTest {
-    val random = Random(0)
+    val random = Random
 
     @JvmStatic
     fun main(args: Array<String>) {
