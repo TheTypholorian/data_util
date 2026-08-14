@@ -19,13 +19,14 @@ object JsonTest {
         val length = Random.nextInt(3, 6 + depth * 2)
         return buildString(length) {
             repeat(length) {
-                append(Random.nextInt(0x61, 0x7B).toChar())
+                //append(random.nextInt().toChar())
+                append(random.nextInt(0x61, 0x7B).toChar())
             }
         }
     }
 
     private fun createAny(depth: Int): Any? {
-        return when (random.nextInt(if (depth < 4) 6 else 4)) {
+        return when (random.nextInt(if (depth < 10) 6 else 4)) {
             0 -> random.nextBoolean()
             1 -> random.nextInt()
             2 -> random.nextFloat()
