@@ -1,8 +1,9 @@
 import net.typho.tv_lib.io.impl.JsonFileFormat
 import kotlin.random.Random
+import kotlin.system.measureTimeMillis
 
 object JsonTest {
-    val random = Random
+    val random = Random(5)
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -11,12 +12,15 @@ object JsonTest {
             prettyPrint = true
         )
         val obj = createObject(0)
-        println(obj)
-        println(format.write(obj))
+        val written: String
+        println(measureTimeMillis {
+            written = format.write(obj)
+        })
+        //println(written)
     }
 
     private fun randomString(depth: Int): String {
-        val length = Random.nextInt(3, 6 + depth * 2)
+        val length = random.nextInt(3, 6 + depth * 2)
         return buildString(length) {
             repeat(length) {
                 //append(random.nextInt().toChar())
@@ -26,13 +30,14 @@ object JsonTest {
     }
 
     private fun createAny(depth: Int): Any? {
-        return when (random.nextInt(if (depth < 10) 6 else 4)) {
+        return when (random.nextInt(if (depth < 12) 7 else 5)) {
             0 -> random.nextBoolean()
             1 -> random.nextInt()
             2 -> random.nextFloat()
             3 -> null
-            4 -> createObject(depth)
-            5 -> createArray(depth)
+            4 -> randomString(depth)
+            5 -> createObject(depth)
+            6 -> createArray(depth)
             else -> throw AssertionError()
         }
     }
@@ -40,7 +45,7 @@ object JsonTest {
     private fun createArray(depth: Int): List<Any?> {
         val list = mutableListOf<Any?>()
 
-        repeat(random.nextInt(12)) {
+        repeat(random.nextInt(20)) {
             list.add(createAny(depth + 1))
         }
 
@@ -50,7 +55,7 @@ object JsonTest {
     private fun createObject(depth: Int): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
 
-        repeat(random.nextInt(12)) {
+        repeat(random.nextInt(20)) {
             map.put(randomString(depth + 1), createAny(depth + 1))
         }
 

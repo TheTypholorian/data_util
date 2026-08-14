@@ -19,7 +19,6 @@ import net.typho.tv_lib.io.impl.token.ObjectOpenToken
 import net.typho.tv_lib.io.impl.token.PrimitiveToken
 import net.typho.tv_lib.io.impl.token.StringToken
 import net.typho.tv_lib.io.impl.token.Token
-import sun.text.normalizer.UTF16.append
 
 class JsonFileFormat @JvmOverloads constructor(
     @JvmField
@@ -258,7 +257,7 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     // reads an array/list from the iterator until a matching ArrayCloseToken
-    private fun readList(line: Int?, tokens: Iterator<Token>): List<Any?> {
+    private fun readList(line: Int, tokens: Iterator<Token>): List<Any?> {
         val list = mutableListOf<Any?>()
 
         while (tokens.hasNext()) {
@@ -287,7 +286,7 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     // reads an object from the iterator until a matching ObjectCloseToken
-    private fun readObject(line: Int?, tokens: Iterator<Token>): Map<String, Any?> {
+    private fun readObject(line: Int, tokens: Iterator<Token>): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
 
         while (tokens.hasNext()) {
@@ -329,137 +328,86 @@ class JsonFileFormat @JvmOverloads constructor(
     }
 
     override fun write(data: Any): String {
-        val tokens = mutableListOf<Token>()
-
         if (data !is List<*> && data !is Map<*, *>) {
             throw DataFileWritingException("Jsons must be either a list or a map, got $data")
         }
 
-        writeValue(data, tokens)
-
         return buildString {
-            if (prettyPrint) {
-                var indent = 0
-                val iterator = tokens.listIterator()
-
-                while (iterator.hasNext()) {
-                    when (val token = iterator.next()) {
-                        is StringToken -> {
-                            append('"')
-                            append(DataFileFormat.writeEscapeSequences(token.value))
-                            append('"')
-                        }
-                        is PrimitiveToken<*> -> append(token.value)
-                        is ArrayOpenToken -> {
-                            if (tokens[iterator.nextIndex()] is ArrayCloseToken) {
-                                append('[')
-                                append(']')
-                                iterator.next()
-                            } else {
-                                indent++
-                                append('[')
-                                append('\n')
-                                append("\t".repeat(indent))
-                            }
-                        }
-                        is ArrayCloseToken -> {
-                            indent--
-                            append('\n')
-                            append("\t".repeat(indent))
-                            append(']')
-                        }
-                        is ObjectOpenToken -> {
-                            if (tokens[iterator.nextIndex()] is ObjectCloseToken) {
-                                append('{')
-                                append('}')
-                                iterator.next()
-                            } else {
-                                indent++
-                                append('{')
-                                append('\n')
-                                append("\t".repeat(indent))
-                            }
-                        }
-                        is ObjectCloseToken -> {
-                            indent--
-                            append('\n')
-                            append("\t".repeat(indent))
-                            append('}')
-                        }
-                        is ColonToken -> append(": ")
-                        is CommaToken -> {
-                            append(',')
-                            append('\n')
-                            append("\t".repeat(indent))
-                        }
-                        else -> throw DataFileWritingException("Illegal token $token")
-                    }
-                }
-            } else {
-                for (token in tokens) {
-                    when (token) {
-                        is StringToken -> {
-                            append('"')
-                            append(DataFileFormat.writeEscapeSequences(token.value))
-                            append('"')
-                        }
-                        is PrimitiveToken<*> -> append(token.value)
-                        is ArrayOpenToken -> append('[')
-                        is ArrayCloseToken -> append(']')
-                        is ObjectOpenToken -> append('{')
-                        is ObjectCloseToken -> append('}')
-                        is ColonToken -> append(':')
-                        is CommaToken -> append(',')
-                        else -> throw DataFileWritingException("Illegal token $token")
-                    }
-                }
-            }
+            writeValue(data, 0, this)
         }
     }
 
-    private fun writeValue(value: Any?, tokens: MutableList<Token>) {
+    private fun writeValue(value: Any?, depth: Int, builder: StringBuilder) {
         when (value) {
-            null -> tokens.add(NullToken())
-            is Boolean -> tokens.add(BoolToken(value = value))
-            is Double -> tokens.add(FloatToken(value = value.toFloat()))
-            is Float -> tokens.add(FloatToken(value = value))
-            is Long -> tokens.add(LongToken(value = value))
-            is Int -> tokens.add(IntToken(value = value))
-            is Short -> tokens.add(IntToken(value = value.toInt()))
-            is Byte -> tokens.add(IntToken(value = value.toInt()))
-            is String -> tokens.add(StringToken(value = value))
+            null -> builder.append("null")
+            is Boolean -> builder.append(value)
+            is Double -> builder.append(value)
+            is Float -> builder.append(value)
+            is Long -> builder.append(value)
+            is Int -> builder.append(value)
+            is Short -> builder.append(value)
+            is Byte -> builder.append(value)
+            is String -> builder.append('"').append(DataFileFormat.writeEscapeSequences(value)).append('"')
             is List<*> -> {
-                tokens.add(ArrayOpenToken())
+                if (value.isEmpty()) {
+                    builder.append("[]")
+                } else {
+                    val indent = if (prettyPrint) '\n' + "\t".repeat(depth + 1) else ""
+                    builder.append('[')
+                    builder.append(indent)
 
-                val iterator = value.iterator()
+                    val iterator = value.iterator()
 
-                while (iterator.hasNext()) {
-                    writeValue(iterator.next(), tokens)
+                    while (iterator.hasNext()) {
+                        writeValue(iterator.next(), depth + 1, builder)
 
-                    if (iterator.hasNext()) {
-                        tokens.add(CommaToken())
+                        if (iterator.hasNext()) {
+                            builder.append(',')
+                            builder.append(indent)
+                        }
                     }
-                }
 
-                tokens.add(ArrayCloseToken())
+                    if (prettyPrint) {
+                        builder.append('\n').append("\t".repeat(depth))
+                    }
+
+                    builder.append(']')
+                }
             }
             is Map<*, *> -> {
-                tokens.add(ObjectOpenToken())
+                if (value.isEmpty()) {
+                    builder.append("{}")
+                } else {
+                    val indent = if (prettyPrint) '\n' + "\t".repeat(depth + 1) else ""
+                    builder.append('{')
+                    builder.append(indent)
 
-                val iterator = value.iterator()
+                    val iterator = value.iterator()
 
-                while (iterator.hasNext()) {
-                    val entry = iterator.next()
-                    writeValue(entry.key, tokens)
-                    tokens.add(ColonToken())
-                    writeValue(entry.value, tokens)
+                    while (iterator.hasNext()) {
+                        val entry = iterator.next()
+                        writeValue(entry.key, depth + 1, builder)
 
-                    if (iterator.hasNext()) {
-                        tokens.add(CommaToken())
+                        if (prettyPrint) {
+                            builder.append(": ")
+                        } else {
+                            builder.append(':')
+                        }
+
+                        writeValue(entry.value, depth + 1, builder)
+
+                        if (iterator.hasNext()) {
+                            builder.append(',')
+                            builder.append(indent)
+                        }
                     }
-                }
 
-                tokens.add(ObjectCloseToken())
+                    if (prettyPrint) {
+                        builder.append('\n').append("\t".repeat(depth))
+                    }
+
+                    builder.append('}')
+                }
             }
             else -> throw DataFileWritingException("Unsupported json value $value")
         }

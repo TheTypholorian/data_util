@@ -1,7 +1,7 @@
 package net.typho.tv_lib.io.impl.token
 
 class NullToken(
-    override val line: Int? = null
+    override val line: Int
 ) : PrimitiveToken<Any?> {
     override val value: Any?
         get() = null
