@@ -1,3 +1,10 @@
+import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonNull
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 import net.typho.tv_lib.io.impl.JsonFileFormat
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
@@ -9,14 +16,38 @@ object JsonTest {
     fun main(args: Array<String>) {
         val format = JsonFileFormat(
             allowComments = true,
-            prettyPrint = true
+            prettyPrint = false
         )
         val obj = createObject(0)
-        val written: String
-        println(measureTimeMillis {
-            written = format.write(obj)
-        })
-        //println(written)
+
+        println("tv: " + measureTimeMillis {
+            format.write(obj)
+        } + " ms for write")
+        val gson = toGson(obj)
+        println("gson: " + measureTimeMillis {
+            Gson().toJson(gson)
+        } + " ms for write")
+
+        val written = format.write(obj)
+        println("tv: " + measureTimeMillis {
+            format.read(written)
+        } + " ms for read")
+        println("gson: " + measureTimeMillis {
+            JsonParser.parseString(written)
+        } + " ms for read")
+    }
+
+    private fun toGson(value: Any?): JsonElement {
+        return when (value) {
+            null -> JsonNull.INSTANCE
+            is Boolean -> JsonPrimitive(value)
+            is Int -> JsonPrimitive(value)
+            is Float -> JsonPrimitive(value)
+            is String -> JsonPrimitive(value)
+            is List<*> -> JsonArray().also { value.mapTo(it.asList()) { toGson(it) } }
+            is Map<*, *> -> JsonObject().also { value.mapKeys { (key, value) -> key as String }.mapValuesTo(it.asMap()) { (key, value) -> toGson(value) } }
+            else -> throw AssertionError()
+        }
     }
 
     private fun randomString(depth: Int): String {
@@ -56,7 +87,7 @@ object JsonTest {
         val map = mutableMapOf<String, Any?>()
 
         repeat(random.nextInt(20)) {
-            map.put(randomString(depth + 1), createAny(depth + 1))
+            map[randomString(depth + 1)] = createAny(depth + 1)
         }
 
         return map
