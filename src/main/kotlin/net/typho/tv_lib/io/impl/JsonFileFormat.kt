@@ -1,0 +1,324 @@
+package net.typho.tv_lib.io.impl
+
+import net.typho.tv_lib.io.DataObjectSerializer
+import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.StringDataFileFormat
+import net.typho.tv_lib.io.impl.token.ArrayCloseToken
+import net.typho.tv_lib.io.impl.token.ArrayOpenToken
+import net.typho.tv_lib.io.impl.token.BoolToken
+import net.typho.tv_lib.io.impl.token.ColonToken
+import net.typho.tv_lib.io.impl.token.CommaToken
+import net.typho.tv_lib.io.impl.token.FloatToken
+import net.typho.tv_lib.io.impl.token.IntToken
+import net.typho.tv_lib.io.impl.token.NullToken
+import net.typho.tv_lib.io.impl.token.ObjectCloseToken
+import net.typho.tv_lib.io.impl.token.ObjectOpenToken
+import net.typho.tv_lib.io.impl.token.PrimitiveToken
+import net.typho.tv_lib.io.impl.token.StringToken
+import net.typho.tv_lib.io.impl.token.Token
+
+class JsonFileFormat @JvmOverloads constructor(
+    @JvmField
+    val allowComments: Boolean = false,
+    @JvmField
+    val prettyPrint: Boolean = false
+) : StringDataFileFormat<Any?> {
+    override val extension: String
+        get() = "json"
+    override val serializers = mutableListOf<DataObjectSerializer<Any>>()
+
+    override fun read(input: String): Any? {
+        val tokens = arrayListOf<Token>()
+        var line = 0
+        var index = 0
+
+        // used for single line comments
+        fun jumpToAfterNext(char: Char): Boolean {
+            var line1 = line
+            var index1 = index
+
+            while (index1 < input.length) {
+                val c = input[index1++]
+
+                if (c == '\n') {
+                    line1++
+                }
+
+                if (c == char) {
+                    line = line1
+                    index = index1
+                    return true
+                }
+            }
+
+            return false
+        }
+
+        // used for multiline comments
+        fun jumpToAfterNext(s: String, extraNewlines: Int = 0): Boolean {
+            var line1 = line
+            var index1 = index
+
+            while (index1 < input.length) {
+                if (input[index1] == '\n') {
+                    line1++
+                }
+
+                if (input.startsWith(s, index1)) {
+                    line = line1 + extraNewlines
+                    index = index1 + s.length
+                    return true
+                }
+
+                index1++
+            }
+
+            return false
+        }
+
+        mainLoop@
+        while (index < input.length) {
+            val c = input[index]
+
+            if (c == '\n') {
+                line++
+                index++
+                continue
+            }
+
+            if (c.isWhitespace()) {
+                index++
+                continue
+            }
+
+            // skip comments
+            if (allowComments && c == '/') {
+                val index1 = index + 1
+
+                if (index1 < input.length) {
+                    val c1 = input[index1]
+
+                    when (c1) {
+                        '*' -> {
+                            if (jumpToAfterNext("*/")) {
+                                continue
+                            } else {
+                                throw FileFormatException("Multiline comment at line $line never closes")
+                            }
+                        }
+                        '/' -> {
+                            if (jumpToAfterNext('\n')) {
+                                continue
+                            } else {
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            // numbers
+            if (c.isDigit() || c == '-' || c == '.') {
+                val numberStart = index
+                var float = false
+                var exponent = false
+
+                while (index < input.length) {
+                    val c1 = input[index]
+
+                    if (c1 == 'E' || c1 == 'e') { // exponents
+                        if (exponent) {
+                            tokens.add(FloatToken(line, input.substring(numberStart, index).toFloat()))
+                            continue@mainLoop
+                        }
+
+                        exponent = true
+                    } else if (c1 == '.') { // decimals
+                        if (float) {
+                            tokens.add(FloatToken(line, input.substring(numberStart, index).toFloat()))
+                            continue@mainLoop
+                        }
+
+                        float = true
+                    } else if (!(c1.isDigit() || (exponent && (c1 == '-' || c1 == '+')))) { // number ends
+                        if (float || exponent) {
+                            tokens.add(FloatToken(line, input.substring(numberStart, index).toFloat()))
+                        } else {
+                            tokens.add(IntToken(line, input.substring(numberStart, index).toInt()))
+                        }
+
+                        if (c1 == '\n') {
+                            line++
+                        }
+
+                        continue@mainLoop
+                    }
+
+                    index++
+                }
+
+                throw FileFormatException("Unterminated number at line $line")
+            }
+
+            when (c) {
+                'n' -> { // null values
+                    if (input.startsWith("null", index)) {
+                        tokens.add(NullToken(line))
+                        index += "null".length
+                        continue
+                    }
+                }
+                't' -> { // true values
+                    if (input.startsWith("true", index)) {
+                        tokens.add(BoolToken(line, true))
+                        index += "true".length
+                        continue
+                    }
+                }
+                'f' -> { // false values
+                    if (input.startsWith("false", index)) {
+                        tokens.add(BoolToken(line, false))
+                        index += "false".length
+                        continue
+                    }
+                }
+            }
+
+            when (c) {
+                // single character tokens
+                '{' -> tokens.add(ObjectOpenToken(line))
+                '}' -> tokens.add(ObjectCloseToken(line))
+                '[' -> tokens.add(ArrayOpenToken(line))
+                ']' -> tokens.add(ArrayCloseToken(line))
+                ':' -> tokens.add(ColonToken(line))
+                ',' -> tokens.add(CommaToken(line))
+
+                // strings
+                '"' -> {
+                    index++
+                    val stringStart = index
+
+                    while (index < input.length) {
+                        val c1 = input[index]
+
+                        when (c1) {
+                            '\n' -> throw FileFormatException("Unterminated string at line $line")
+                            '"' -> {
+                                tokens.add(StringToken(line, input.substring(stringStart, index)))
+                                index++
+                                continue@mainLoop
+                            }
+                        }
+
+                        index++
+                    }
+                }
+
+                else -> throw FileFormatException("Illegal character '$c' at line $line")
+            }
+
+            index++
+        }
+
+        // parse the tokens
+        val iterator = tokens.iterator()
+
+        val value = when (val token = iterator.next()) {
+            is ArrayOpenToken -> readList(token.line, iterator)
+            is ObjectOpenToken -> readObject(token.line, iterator)
+            is PrimitiveToken<*> -> token.content
+            else -> throw FileFormatException("Expected an array, object, or primitive but got $token at line ${token.line}")
+        }
+
+        if (iterator.hasNext()) {
+            throw FileFormatException("Extra tokens after content at line $line")
+        }
+
+        return value
+    }
+
+    // reads an array/list from the iterator until a matching ArrayCloseToken
+    private fun readList(line: Int, tokens: Iterator<Token>): List<Any?> {
+        val list = mutableListOf<Any?>()
+
+        while (tokens.hasNext()) {
+            when (val token = tokens.next()) {
+                is ArrayCloseToken -> return list
+                is ArrayOpenToken -> list.add(readList(token.line, tokens))
+                is ObjectOpenToken -> list.add(readObject(token.line, tokens))
+                is PrimitiveToken<*> -> list.add(token.content)
+                else -> throw FileFormatException("Expected an array, object, or primitive but got $token in array at line ${token.line}")
+            }
+
+            when (val commaToken = tokens.next()) {
+                is CommaToken -> {}
+                is ArrayCloseToken -> return list
+                else -> throw FileFormatException("Expected comma or array end but got $commaToken in array at line ${commaToken.line}")
+            }
+        }
+
+        throw FileFormatException("Unterminated array at line $line")
+    }
+
+    // reads an object from the iterator until a matching ObjectCloseToken
+    private fun readObject(line: Int, tokens: Iterator<Token>): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+
+        while (tokens.hasNext()) {
+            val keyToken = tokens.next()
+
+            if (keyToken is ObjectCloseToken) {
+                return map
+            }
+
+            val key = (keyToken as? StringToken)?.content ?: throw FileFormatException("Expected string but got $keyToken in object at line ${keyToken.line}")
+
+            if (map.containsKey(key)) {
+                throw FileFormatException("Duplicate object entry '$key' in object at line ${keyToken.line}")
+            }
+
+            val colonToken = tokens.next()
+
+            if (colonToken !is ColonToken) {
+                throw FileFormatException("Expected colon but got $colonToken in object at line ${colonToken.line}")
+            }
+
+            val value = when (val valueToken = tokens.next()) {
+                is ArrayOpenToken -> readList(valueToken.line, tokens)
+                is ObjectOpenToken -> readObject(valueToken.line, tokens)
+                is PrimitiveToken<*> -> valueToken.content
+                else -> throw FileFormatException("Expected an array, object, or primitive but got $valueToken in object at line ${valueToken.line}")
+            }
+
+            map[key] = value
+
+            when (val commaToken = tokens.next()) {
+                is CommaToken -> {}
+                is ObjectCloseToken -> return map
+                else -> throw FileFormatException("Expected comma or object end but got $commaToken in object at line ${commaToken.line}")
+            }
+        }
+
+        throw FileFormatException("Unterminated object at line $line")
+    }
+
+    override fun write(data: Any?): String {
+        val tokens = mutableListOf<Token>()
+    }
+
+    private fun writeValue(value: Any?, tokens: MutableList<Token>) {
+        when (value) {
+            null -> tokens.add(NullToken())
+            is Boolean -> tokens.add(BoolToken(content = value))
+            is Float -> tokens.add(FloatToken(content = value))
+            is Int -> tokens.add(IntToken(content = value))
+            is String -> tokens.add(StringToken(content = value))
+            is List<*> -> {
+                tokens.add(ArrayOpenToken())
+            }
+            is Map<*, *> -> {
+            }
+            else -> throw FileFormatException("Unsupported json value $value")
+        }
+    }
+}

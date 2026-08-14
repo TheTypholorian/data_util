@@ -3,23 +3,23 @@ package net.typho.tv_lib.io
 import java.io.InputStream
 import java.io.OutputStream
 
-interface DataFileFormat {
+interface DataFileFormat<D, P> {
     val extension: String
     val serializers: MutableList<DataObjectSerializer<Any>>
 
-    fun read(input: String): Any
+    fun read(input: D): P
 
     /**
      * **Note**: It is the caller's responsibility to close this stream.
      */
-    fun read(input: InputStream) = read(String(input.readBytes(), Charsets.UTF_8))
+    fun read(input: InputStream): P
 
-    fun write(data: Any): String
+    fun write(data: P): D
 
     /**
      * **Note**: It is the caller's responsibility to close this stream.
      */
-    fun write(data: Any, output: OutputStream) = output.write(write(data).toByteArray(Charsets.UTF_8))
+    fun write(data: P, output: OutputStream)
 
     companion object {
         @JvmStatic

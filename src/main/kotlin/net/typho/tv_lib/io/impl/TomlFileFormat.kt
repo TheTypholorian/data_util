@@ -3,9 +3,10 @@ package net.typho.tv_lib.io.impl
 import net.typho.tv_lib.io.DataFileFormat
 import net.typho.tv_lib.io.DataObjectSerializer
 import net.typho.tv_lib.io.FileFormatException
+import net.typho.tv_lib.io.StringDataFileFormat
 
 class TomlFileFormat(
-) : DataFileFormat {
+) : StringDataFileFormat<Map<String, Any>> {
     override val extension: String
         get() = "toml"
     override val serializers = mutableListOf<DataObjectSerializer<Any>>()
@@ -112,7 +113,7 @@ class TomlFileFormat(
         return map
     }
 
-    override fun write(data: Any): String {
-        TODO("")
+    override fun write(data: Map<String, Any>): String {
+        TODO("Not yet implemented")
     }
 }
