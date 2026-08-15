@@ -7,6 +7,7 @@ import net.typho.data_util.codec.MapInput
 import net.typho.data_util.codec.MapOutput
 import net.typho.data_util.codec.MapOutputResult
 
+/*
 class TomlFormat(
 ) : StringDataFormat<Map<String, Any?>> {
     @Suppress("UNCHECKED_CAST")
@@ -124,3 +125,4 @@ class TomlFormat(
         TODO("Not yet implemented")
     }
 }
+ */
