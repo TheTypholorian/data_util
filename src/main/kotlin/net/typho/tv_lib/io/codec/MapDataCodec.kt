@@ -6,12 +6,12 @@ import java.util.function.BiConsumer
 import java.util.function.Function
 import java.util.function.Supplier
 
-interface MapCodecTemplate<T : Any> : CodecTemplate<T> {
+interface MapDataCodec<T : Any> : DataCodec<T> {
     data class Entry<T : Any, V : Any> @JvmOverloads constructor(
         @JvmField
         val key: String,
         @JvmField
-        val codec: CodecTemplate<V>,
+        val codec: DataCodec<V>,
         @JvmField
         val getter: Function<T, V>,
         @JvmField
@@ -19,7 +19,7 @@ interface MapCodecTemplate<T : Any> : CodecTemplate<T> {
         @JvmField
         val fallback: Optional<V> = Optional.empty<V>()
     ) {
-        fun read(value: T, input: CodecTemplate.MapInput) {
+        fun read(value: T, input: MapInput) {
             val result = input.readEntry(key).map { codec.read(it) }
             setter.accept(value, if (result.isPresent) {
                 result.get()
@@ -30,20 +30,20 @@ interface MapCodecTemplate<T : Any> : CodecTemplate<T> {
             })
         }
 
-        fun write(value: T, output: CodecTemplate.MapOutput) {
+        fun write(value: T, output: MapOutput) {
             codec.write(getter.apply(value), output.writeEntry(key))
         }
     }
 
-    fun read(input: CodecTemplate.MapInput): T
+    fun read(input: MapInput): T
 
-    override fun read(input: CodecTemplate.ValueInput): T {
+    override fun read(input: SingleValueInput): T {
         return read(input.readMap())
     }
 
-    fun write(value: T, output: CodecTemplate.MapOutput)
+    fun write(value: T, output: MapOutput)
 
-    override fun write(value: T, output: CodecTemplate.ValueOutput) {
+    override fun write(value: T, output: SingleValueOutput) {
         write(value, output.writeMap())
     }
 
@@ -52,8 +52,8 @@ interface MapCodecTemplate<T : Any> : CodecTemplate<T> {
         fun <T : Any> of(
             constructor: Supplier<T>,
             entries: List<Entry<T, *>>
-        ) = object : MapCodecTemplate<T> {
-            override fun read(input: CodecTemplate.MapInput): T {
+        ) = object : MapDataCodec<T> {
+            override fun read(input: MapInput): T {
                 val value = constructor.get()
 
                 for (entry in entries) {
@@ -63,7 +63,7 @@ interface MapCodecTemplate<T : Any> : CodecTemplate<T> {
                 return value
             }
 
-            override fun write(value: T, output: CodecTemplate.MapOutput) {
+            override fun write(value: T, output: MapOutput) {
                 for (entry in entries) {
                     entry.write(value, output)
                 }

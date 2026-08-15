@@ -3,17 +3,19 @@ package net.typho.tv_lib.io.impl
 import net.typho.tv_lib.io.DataFormat
 import net.typho.tv_lib.io.DataReadException
 import net.typho.tv_lib.io.StringDataFormat
-import net.typho.tv_lib.io.codec.CodecTemplate
+import net.typho.tv_lib.io.codec.MapInput
+import net.typho.tv_lib.io.codec.MapOutput
+import net.typho.tv_lib.io.codec.MapOutputResult
 
 class TomlFormat(
 ) : StringDataFormat<Map<String, Any?>> {
     @Suppress("UNCHECKED_CAST")
-    override fun createInput(parsed: Map<String, Any?>): CodecTemplate.MapInput {
-        return CodecTemplate.MapInput.fromMap(parsed)
+    override fun createInput(parsed: Map<String, Any?>): MapInput {
+        return MapInput.fromMap(parsed)
     }
 
-    override fun createOutput(): CodecTemplate.MapOutputTo<out Map<String, Any?>> {
-        return CodecTemplate.MapOutput.toMap(mutableMapOf())
+    override fun createOutput(): MapOutputResult<out Map<String, Any?>> {
+        return MapOutput.toMap(mutableMapOf())
     }
 
     override fun read(input: String): Map<String, Any?> {

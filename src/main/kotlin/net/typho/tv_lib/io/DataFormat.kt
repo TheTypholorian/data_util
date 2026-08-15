@@ -1,12 +1,13 @@
 package net.typho.tv_lib.io
 
-import net.typho.tv_lib.io.codec.CodecTemplate
-import net.typho.tv_lib.io.codec.MapCodecTemplate
+import net.typho.tv_lib.io.codec.MapDataCodec
+import net.typho.tv_lib.io.codec.MapInput
+import net.typho.tv_lib.io.codec.MapOutputResult
 import java.io.DataInput
 import java.io.DataOutput
 
 interface DataFormat<D, R> : DataSerializer<D, R> {
-    fun <C : Any> map(codec: MapCodecTemplate<C>): DataSerializer<D, C> {
+    fun <C : Any> map(codec: MapDataCodec<C>): DataSerializer<D, C> {
         val parent = this
 
         return object : DataSerializer<D, C> {
@@ -32,9 +33,9 @@ interface DataFormat<D, R> : DataSerializer<D, R> {
         }
     }
 
-    fun createInput(parsed: R): CodecTemplate.MapInput
+    fun createInput(parsed: R): MapInput
 
-    fun createOutput(): CodecTemplate.MapOutputTo<out R>
+    fun createOutput(): MapOutputResult<out R>
 
     companion object {
         @JvmStatic

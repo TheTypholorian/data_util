@@ -3,7 +3,10 @@ package net.typho.tv_lib.io.impl
 import net.typho.tv_lib.io.DataFormat
 import net.typho.tv_lib.io.DataReadException
 import net.typho.tv_lib.io.StringDataFormat
-import net.typho.tv_lib.io.codec.CodecTemplate
+import net.typho.tv_lib.io.codec.DataCodec
+import net.typho.tv_lib.io.codec.MapInput
+import net.typho.tv_lib.io.codec.MapOutput
+import net.typho.tv_lib.io.codec.MapOutputResult
 
 class PropertiesFormat(
     @JvmField
@@ -15,12 +18,12 @@ class PropertiesFormat(
         }
     }
 
-    override fun createInput(parsed: Map<String, String>): CodecTemplate.MapInput {
-        return CodecTemplate.MapInput.fromStringMap(parsed)
+    override fun createInput(parsed: Map<String, String>): MapInput {
+        return MapInput.fromStringMap(parsed)
     }
 
-    override fun createOutput(): CodecTemplate.MapOutputTo<out Map<String, String>> {
-        return CodecTemplate.MapOutput.toStringMap(mutableMapOf())
+    override fun createOutput(): MapOutputResult<out Map<String, String>> {
+        return MapOutput.toStringMap(mutableMapOf())
     }
 
     override fun read(input: String): Map<String, String> {

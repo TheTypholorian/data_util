@@ -4,7 +4,9 @@ import net.typho.tv_lib.io.DataFormat
 import net.typho.tv_lib.io.DataReadException
 import net.typho.tv_lib.io.DataWriteException
 import net.typho.tv_lib.io.StringDataFormat
-import net.typho.tv_lib.io.codec.CodecTemplate
+import net.typho.tv_lib.io.codec.MapInput
+import net.typho.tv_lib.io.codec.MapOutput
+import net.typho.tv_lib.io.codec.MapOutputResult
 
 class JsonFormat(
     @JvmField
@@ -13,12 +15,12 @@ class JsonFormat(
     val prettyPrint: Boolean = false
 ) : StringDataFormat<Any> {
     @Suppress("UNCHECKED_CAST")
-    override fun createInput(parsed: Any): CodecTemplate.MapInput {
-        return CodecTemplate.MapInput.fromMap((parsed as? Map<String, Any?>) ?: throw IllegalArgumentException("Can only create a map input to a map object, got a $parsed"))
+    override fun createInput(parsed: Any): MapInput {
+        return MapInput.fromMap((parsed as? Map<String, Any?>) ?: throw IllegalArgumentException("Can only create a map input to a map object, got a $parsed"))
     }
 
-    override fun createOutput(): CodecTemplate.MapOutputTo<out Any> {
-        return CodecTemplate.MapOutput.toMap(mutableMapOf())
+    override fun createOutput(): MapOutputResult<out Any> {
+        return MapOutput.toMap(mutableMapOf())
     }
 
     override fun read(input: String): Any {
