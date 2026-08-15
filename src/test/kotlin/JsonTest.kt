@@ -5,7 +5,7 @@ import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
-import net.typho.tv_lib.io.impl.JsonFileFormat
+import net.typho.tv_lib.io.impl.JsonFormat
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
 
@@ -14,7 +14,7 @@ object JsonTest {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        val format = JsonFileFormat(
+        val format = JsonFormat(
             allowComments = true,
             prettyPrint = true
         )

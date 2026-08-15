@@ -1,6 +1,6 @@
 package net.typho.tv_lib.io
 
-class DataFileWritingException : RuntimeException {
+class DataReadException : RuntimeException {
     constructor() : super()
 
     constructor(message: String) : super(message)

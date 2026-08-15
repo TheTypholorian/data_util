@@ -1,25 +1,40 @@
 package net.typho.tv_lib.io
 
-import java.io.InputStream
-import java.io.OutputStream
+import net.typho.tv_lib.io.codec.CodecTemplate
+import net.typho.tv_lib.io.codec.MapCodecTemplate
+import java.io.DataInput
+import java.io.DataOutput
 
-interface DataFileFormat<D, P> {
-    val extension: String
-    val serializers: MutableList<DataObjectSerializer<out Any>>
+interface DataFormat<D, R> : DataSerializer<D, R> {
+    fun <C : Any> map(codec: MapCodecTemplate<C>): DataSerializer<D, C> {
+        val parent = this
 
-    fun read(input: D): P
+        return object : DataSerializer<D, C> {
+            override fun read(input: D): C {
+                return codec.read(parent.createInput(parent.read(input)))
+            }
 
-    /**
-     * **Note**: It is the caller's responsibility to close this stream.
-     */
-    fun read(input: InputStream): P
+            override fun read(bytes: Int, input: DataInput): C {
+                return codec.read(parent.createInput(parent.read(bytes, input)))
+            }
 
-    fun write(data: P): D
+            override fun write(data: C): D {
+                val out = parent.createOutput()
+                codec.write(data, out)
+                return parent.write(out.finish())
+            }
 
-    /**
-     * **Note**: It is the caller's responsibility to close this stream.
-     */
-    fun write(data: P, output: OutputStream)
+            override fun write(data: C, output: DataOutput) {
+                val out = parent.createOutput()
+                codec.write(data, out)
+                parent.write(out.finish(), output)
+            }
+        }
+    }
+
+    fun createInput(parsed: R): CodecTemplate.MapInput
+
+    fun createOutput(): CodecTemplate.MapOutputTo<out R>
 
     companion object {
         @JvmStatic
@@ -32,7 +47,7 @@ interface DataFileFormat<D, P> {
 
                 if (c == '\\') {
                     if (i == text.length) {
-                        throw DataFileReadingException("Unterminated escape sequence in string at line ${line?.invoke()}")
+                        throw DataReadException("Unterminated escape sequence in string at line ${line?.invoke()}")
                     }
 
                     var endIndex = i + 1
@@ -47,7 +62,7 @@ interface DataFileFormat<D, P> {
                             endIndex += 4
                             text.substring(i + 1, endIndex).toInt(16).toChar()
                         }
-                        else -> throw DataFileReadingException("Invalid escape sequence '\\$c1' at line ${line?.invoke()}")
+                        else -> throw DataReadException("Invalid escape sequence '\\$c1' at line ${line?.invoke()}")
                     }
 
                     text = text.substring(0, i - 1) + escaped + text.substring(endIndex)

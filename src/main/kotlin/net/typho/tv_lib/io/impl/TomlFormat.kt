@@ -1,17 +1,22 @@
 package net.typho.tv_lib.io.impl
 
-import net.typho.tv_lib.io.DataFileFormat
-import net.typho.tv_lib.io.DataObjectSerializer
-import net.typho.tv_lib.io.DataFileReadingException
-import net.typho.tv_lib.io.StringDataFileFormat
+import net.typho.tv_lib.io.DataFormat
+import net.typho.tv_lib.io.DataReadException
+import net.typho.tv_lib.io.StringDataFormat
+import net.typho.tv_lib.io.codec.CodecTemplate
 
-class TomlFileFormat(
-) : StringDataFileFormat<Map<String, Any>> {
-    override val extension: String
-        get() = "toml"
-    override val serializers: MutableList<DataObjectSerializer<out Any>> = mutableListOf()
+class TomlFormat(
+) : StringDataFormat<Map<String, Any?>> {
+    @Suppress("UNCHECKED_CAST")
+    override fun createInput(parsed: Map<String, Any?>): CodecTemplate.MapInput {
+        return CodecTemplate.MapInput.fromMap(parsed)
+    }
 
-    override fun read(input: String): Map<String, Any> {
+    override fun createOutput(): CodecTemplate.MapOutputTo<out Map<String, Any?>> {
+        return CodecTemplate.MapOutput.toMap(mutableMapOf())
+    }
+
+    override fun read(input: String): Map<String, Any?> {
         var input = input
 
         // Remove comments, and replace multiline text with single line text
@@ -32,7 +37,7 @@ class TomlFileFormat(
                 if (!backslash) {
                     if (input.regionMatches(i, "\"\"\"", 0, 3, true)) {
                         if (inMultilineSingleQuotes) {
-                            throw DataFileReadingException("Cannot have triple quotes in a multiline single quote string (on line $line)")
+                            throw DataReadException("Cannot have triple quotes in a multiline single quote string (on line $line)")
                         }
 
                         inMultilineDoubleQuotes = !inMultilineDoubleQuotes
@@ -45,7 +50,7 @@ class TomlFileFormat(
                         }.trimStart()
                     } else if (input.regionMatches(i, "'''", 0, 3, true)) {
                         if (inMultilineDoubleQuotes) {
-                            throw DataFileReadingException("Cannot have triple single quotes in a multiline double quote string (on line $line)")
+                            throw DataReadException("Cannot have triple single quotes in a multiline double quote string (on line $line)")
                         }
 
                         inMultilineSingleQuotes = !inMultilineSingleQuotes
@@ -84,7 +89,7 @@ class TomlFileFormat(
 
         println(input)
 
-        val map = mutableMapOf<String, Any>()
+        val map = mutableMapOf<String, Any?>()
         val lines = input.split('\n').iterator()
         var index = 0
 
@@ -98,22 +103,22 @@ class TomlFileFormat(
             }
 
             // Apply escape sequences
-            line = DataFileFormat.readEscapeSequences(null, line)
+            line = DataFormat.readEscapeSequences(null, line)
 
             // Parse the line
             val tokens = line.split('=', ':', limit = 2)
 
             if (tokens.size < 2) {
-                throw DataFileReadingException("Line $currentIndex is missing an '=' delimiter: '$line'")
+                throw DataReadException("Line $currentIndex is missing an '=' delimiter: '$line'")
             }
 
-            map[DataFileFormat.trimQuotes(tokens.first().trim())] = DataFileFormat.trimQuotes(tokens.last().trim())
+            map[DataFormat.trimQuotes(tokens.first().trim())] = DataFormat.trimQuotes(tokens.last().trim())
         }
 
         return map
     }
 
-    override fun write(data: Map<String, Any>): String {
+    override fun write(data: Map<String, Any?>): String {
         TODO("Not yet implemented")
     }
 }

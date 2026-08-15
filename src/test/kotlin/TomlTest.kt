@@ -1,9 +1,9 @@
-import net.typho.tv_lib.io.impl.TomlFileFormat
+import net.typho.tv_lib.io.impl.TomlFormat
 
 object TomlTest {
     @JvmStatic
     fun main(args: Array<String>) {
-        val format = TomlFileFormat()
+        val format = TomlFormat()
         val testText = """
             abc="d#ef"
             jhi = 123 # test comment
