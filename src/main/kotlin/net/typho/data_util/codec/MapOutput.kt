@@ -1,6 +1,6 @@
-package net.typho.tv_lib.io.codec
+package net.typho.data_util.codec
 
-import net.typho.tv_lib.io.DataWriteException
+import net.typho.data_util.DataWriteException
 import java.util.Optional
 import java.util.function.BiConsumer
 import kotlin.collections.set

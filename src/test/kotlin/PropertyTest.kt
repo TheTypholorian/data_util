@@ -1,4 +1,4 @@
-import net.typho.tv_lib.io.impl.PropertiesFormat
+import net.typho.data_util.impl.PropertiesFormat
 
 object PropertyTest {
     @JvmStatic

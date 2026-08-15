@@ -1,4 +1,4 @@
-import net.typho.tv_lib.io.impl.TomlFormat
+import net.typho.data_util.impl.TomlFormat
 
 object TomlTest {
     @JvmStatic

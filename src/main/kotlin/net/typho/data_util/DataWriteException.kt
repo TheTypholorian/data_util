@@ -1,4 +1,4 @@
-package net.typho.tv_lib.io
+package net.typho.data_util
 
 class DataWriteException : RuntimeException {
     constructor() : super()

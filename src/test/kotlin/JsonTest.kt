@@ -5,7 +5,7 @@ import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
-import net.typho.tv_lib.io.impl.JsonFormat
+import net.typho.data_util.impl.JsonFormat
 import kotlin.random.Random
 import kotlin.system.measureTimeMillis
 

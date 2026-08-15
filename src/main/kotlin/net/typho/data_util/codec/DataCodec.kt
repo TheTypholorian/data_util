@@ -1,4 +1,4 @@
-package net.typho.tv_lib.io.codec
+package net.typho.data_util.codec
 
 import java.util.function.BiConsumer
 import java.util.function.Function

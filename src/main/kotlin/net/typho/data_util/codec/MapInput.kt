@@ -1,6 +1,6 @@
-package net.typho.tv_lib.io.codec
+package net.typho.data_util.codec
 
-import net.typho.tv_lib.io.DataReadException
+import net.typho.data_util.DataReadException
 import java.util.Optional
 
 interface MapInput {

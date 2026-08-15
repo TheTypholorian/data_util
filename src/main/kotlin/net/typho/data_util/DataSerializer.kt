@@ -1,4 +1,4 @@
-package net.typho.tv_lib.io
+package net.typho.data_util
 
 import java.io.DataInput
 import java.io.DataOutput

@@ -1,12 +1,12 @@
-package net.typho.tv_lib.io.impl
+package net.typho.data_util.impl
 
-import net.typho.tv_lib.io.DataFormat
-import net.typho.tv_lib.io.DataReadException
-import net.typho.tv_lib.io.StringDataFormat
-import net.typho.tv_lib.io.codec.DataCodec
-import net.typho.tv_lib.io.codec.MapInput
-import net.typho.tv_lib.io.codec.MapOutput
-import net.typho.tv_lib.io.codec.MapOutputResult
+import net.typho.data_util.DataFormat
+import net.typho.data_util.DataReadException
+import net.typho.data_util.StringDataFormat
+import net.typho.data_util.codec.DataCodec
+import net.typho.data_util.codec.MapInput
+import net.typho.data_util.codec.MapOutput
+import net.typho.data_util.codec.MapOutputResult
 
 class PropertiesFormat(
     @JvmField

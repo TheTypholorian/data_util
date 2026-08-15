@@ -1,4 +1,4 @@
-package net.typho.tv_lib.io.impl
+package net.typho.data_util.impl
 
 enum class TokenConstants {
     ARRAY_CLOSE,
