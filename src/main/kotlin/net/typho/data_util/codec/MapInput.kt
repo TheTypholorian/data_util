@@ -4,14 +4,28 @@ import net.typho.data_util.DataReadException
 import java.util.Optional
 
 interface MapInput {
-    fun readEntry(key: String): Optional<SingleValueInput>
+    fun readEntry(key: String): SingleValueInput
+
+    fun readEntryOptional(key: String): Optional<SingleValueInput>
 
     companion object {
         @JvmStatic
         fun fromMap(map: Map<String, Any?>): MapInput = object : MapInput {
             val read = mutableSetOf<String>()
 
-            override fun readEntry(key: String): Optional<SingleValueInput> {
+            override fun readEntry(key: String): SingleValueInput {
+                if (!read.add(key)) {
+                    throw DataReadException("Already read key $key, this would be an error when reading from a stream")
+                }
+
+                if (!map.containsKey(key)) {
+                    throw DataReadException("Map does not contain key $key")
+                }
+
+                return SingleValueInput.fromObject(map[key]!!)
+            }
+
+            override fun readEntryOptional(key: String): Optional<SingleValueInput> {
                 if (!read.add(key)) {
                     throw DataReadException("Already read key $key, this would be an error when reading from a stream")
                 }
@@ -24,7 +38,19 @@ interface MapInput {
         fun fromStringMap(map: Map<String, String>): MapInput = object : MapInput {
             val read = mutableSetOf<String>()
 
-            override fun readEntry(key: String): Optional<SingleValueInput> {
+            override fun readEntry(key: String): SingleValueInput {
+                if (!read.add(key)) {
+                    throw DataReadException("Already read key $key, this would be an error when reading from a stream")
+                }
+
+                if (!map.containsKey(key)) {
+                    throw DataReadException("Map does not contain key $key")
+                }
+
+                return SingleValueInput.fromString(map[key]!!)
+            }
+
+            override fun readEntryOptional(key: String): Optional<SingleValueInput> {
                 if (!read.add(key)) {
                     throw DataReadException("Already read key $key, this would be an error when reading from a stream")
                 }

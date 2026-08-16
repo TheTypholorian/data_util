@@ -21,13 +21,13 @@ interface DataFormat<D, R> : DataSerializer<D, R> {
 
             override fun write(data: C): D {
                 val out = parent.createOutput()
-                codec.write(data, out)
+                codec.write(out, data)
                 return parent.write(out.finish())
             }
 
             override fun write(data: C, output: DataOutput) {
                 val out = parent.createOutput()
-                codec.write(data, out)
+                codec.write(out, data)
                 parent.write(out.finish(), output)
             }
         }

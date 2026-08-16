@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+    implementation(kotlin("reflect"))
     testImplementation("com.google.code.gson:gson:2.14.0")
 }
 
