@@ -1,21 +1,21 @@
-package net.typho.data_util.codec
+package net.typho.data_util
 
-import net.typho.data_util.DataWriteException
 import java.util.Optional
 import java.util.function.BiConsumer
 import kotlin.collections.set
 
 interface MapOutput {
-    fun writeEntry(key: String): SingleValueOutput
+    fun writeNextEntry(key: String): SingleValueOutput
 
     companion object {
         @JvmStatic
-        fun toMap(map: MutableMap<String, Any?>): MapOutputResult<Map<String, Any?>> = object : MapOutputResult<Map<String, Any?>> {
+        fun toMap(map: MutableMap<String, Any?>): MapOutputResult<Map<String, Any?>> = object :
+            MapOutputResult<Map<String, Any?>> {
             override fun finish(): Map<String, Any?> {
                 return map
             }
 
-            override fun writeEntry(key: String): SingleValueOutput {
+            override fun writeNextEntry(key: String): SingleValueOutput {
                 if (map.containsKey(key)) {
                     throw DataWriteException("Duplicate key $key")
                 }
@@ -85,7 +85,7 @@ interface MapOutput {
                 return map
             }
 
-            override fun writeEntry(key: String): SingleValueOutput {
+            override fun writeNextEntry(key: String): SingleValueOutput {
                 if (!alreadyWrote.add(key)) {
                     throw DataWriteException("Duplicate key $key")
                 }

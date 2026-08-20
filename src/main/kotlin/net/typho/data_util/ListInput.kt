@@ -1,6 +1,6 @@
-package net.typho.data_util.codec
+package net.typho.data_util
 
-import net.typho.data_util.DataReadException
+import java.io.DataInput
 import java.util.Optional
 import java.util.function.Function
 
@@ -68,6 +68,76 @@ interface ListInput : SingleValueInput {
             override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
                 val value = read<Any?>()
                 return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(SingleValueInput.fromObject(value)))
+            }
+        }
+
+        @JvmOverloads
+        @JvmStatic
+        fun fromData(input: DataInput, size: Int = input.readInt()): ListInput = object : ListInput {
+            override var left: Int = size
+
+            fun decrement() {
+                if (left == 0) {
+                    throw DataReadException("Read too many entries from list of size $size")
+                }
+
+                left--
+            }
+
+            override fun readBoolean(): Boolean {
+                decrement()
+                return input.readBoolean()
+            }
+
+            override fun readByte(): Byte {
+                decrement()
+                return input.readByte()
+            }
+
+            override fun readShort(): Short {
+                decrement()
+                return input.readShort()
+            }
+
+            override fun readInt(): Int {
+                decrement()
+                return input.readInt()
+            }
+
+            override fun readLong(): Long {
+                decrement()
+                return input.readLong()
+            }
+
+            override fun readFloat(): Float {
+                decrement()
+                return input.readFloat()
+            }
+
+            override fun readDouble(): Double {
+                decrement()
+                return input.readDouble()
+            }
+
+            override fun readString(): String {
+                decrement()
+                return input.readUTF()
+            }
+
+            override fun readList(): ListInput {
+                decrement()
+                return fromData(input)
+            }
+
+            override fun readMap(): MapInput {
+                decrement()
+                return MapInput.fromData(input)
+            }
+
+            override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
+                decrement()
+                val present = input.readBoolean()
+                return if (present) Optional.of(ifPresent.apply(SingleValueInput.fromData(input))) else Optional.empty()
             }
         }
     }

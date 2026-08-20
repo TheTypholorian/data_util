@@ -5,8 +5,8 @@ import net.typho.data_util.codec.FieldCodec
 import net.typho.data_util.codec.FieldDefault
 import net.typho.data_util.codec.FieldRange
 import net.typho.data_util.codec.MapDataCodec
-import net.typho.data_util.codec.SingleValueInput
-import net.typho.data_util.codec.SingleValueOutput
+import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.impl.JsonFormat
 
 object TestCodecs {

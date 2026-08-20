@@ -1,8 +1,6 @@
 package net.typho.data_util
 
 import net.typho.data_util.codec.MapDataCodec
-import net.typho.data_util.codec.MapInput
-import net.typho.data_util.codec.MapOutputResult
 import java.io.DataInput
 import java.io.DataOutput
 

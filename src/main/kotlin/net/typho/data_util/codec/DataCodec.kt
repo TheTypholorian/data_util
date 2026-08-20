@@ -2,6 +2,8 @@ package net.typho.data_util.codec
 
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
+import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueOutput
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import java.util.function.BiConsumer

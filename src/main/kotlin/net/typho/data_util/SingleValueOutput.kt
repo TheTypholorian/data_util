@@ -1,6 +1,5 @@
-package net.typho.data_util.codec
+package net.typho.data_util
 
-import net.typho.data_util.DataWriteException
 import java.util.Optional
 import java.util.function.BiConsumer
 

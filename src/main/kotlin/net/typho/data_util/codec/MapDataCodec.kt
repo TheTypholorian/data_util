@@ -1,6 +1,10 @@
 package net.typho.data_util.codec
 
 import net.typho.data_util.DataReadException
+import net.typho.data_util.MapInput
+import net.typho.data_util.MapOutput
+import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.or
 import org.jetbrains.annotations.Nullable
 import sun.misc.Unsafe
@@ -29,12 +33,12 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
         val fallback: Optional<V> = Optional.empty<V>()
     ) {
         fun read(value: T, input: MapInput) {
-            val result = input.readEntryOptional(key).map { codec.read(it) }
+            val result = input.readNextEntry(key).map { codec.read(it) }
             setter.accept(value, result.or(fallback).orElseThrow { throw DataReadException("Missing value") }) // TODO add useful info
         }
 
         fun write(value: T, output: MapOutput) {
-            codec.write(output.writeEntry(key), getter.apply(value))
+            codec.write(output.writeNextEntry(key), getter.apply(value))
         }
     }
 
@@ -284,7 +288,7 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
             return object : MapDataCodec<T> {
                 override fun read(input: MapInput): T {
                     val args = entries.map { (field, codec, optional, fallback) ->
-                        val value = input.readEntryOptional(field.name).map { codec.read(it) }
+                        val value = input.readNextEntryOptional(field.name).map { codec.read(it) }
 
                         if (value.isPresent) {
                             return@map value.get()
@@ -298,7 +302,7 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
                 }
 
                 fun <V : Any> write(field: Field, codec: DataCodec<V>, value: T, output: MapOutput) {
-                    codec.write(output.writeEntry(field.name), field.get(value) as V)
+                    codec.write(output.writeNextEntry(field.name), field.get(value) as V)
                 }
 
                 override fun write(output: MapOutput, value: T) {

@@ -3,10 +3,9 @@ package net.typho.data_util.impl
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
 import net.typho.data_util.StringDataFormat
-import net.typho.data_util.codec.DataCodec
-import net.typho.data_util.codec.MapInput
-import net.typho.data_util.codec.MapOutput
-import net.typho.data_util.codec.MapOutputResult
+import net.typho.data_util.MapInput
+import net.typho.data_util.MapOutput
+import net.typho.data_util.MapOutputResult
 
 class PropertiesFormat(
     @JvmField

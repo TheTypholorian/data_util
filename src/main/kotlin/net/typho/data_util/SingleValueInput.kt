@@ -1,6 +1,6 @@
-package net.typho.data_util.codec
+package net.typho.data_util
 
-import net.typho.data_util.DataReadException
+import java.io.DataInput
 import java.util.Optional
 import java.util.function.Function
 
@@ -30,7 +30,15 @@ interface SingleValueInput {
     companion object {
         @JvmStatic
         fun fromObject(value: Any?): SingleValueInput = object : SingleValueInput {
+            var used = false
+
             inline fun <reified T : Any> cast(): T {
+                if (used) {
+                    throw DataReadException("SingleValueInput was already read")
+                }
+
+                used = true
+
                 if (value is T) {
                     return value
                 } else {
@@ -65,7 +73,15 @@ interface SingleValueInput {
 
         @JvmStatic
         fun fromString(value: String?): SingleValueInput = object : SingleValueInput {
+            var used = false
+
             inline fun <reified T : Any> cast(converter: Function<String, T?>): T {
+                if (used) {
+                    throw DataReadException("SingleValueInput was already read")
+                }
+
+                used = true
+
                 value?.let { converter.apply(it)?.let { return it } }
 
                 throw DataReadException("Expected ${T::class.java.name}, got '$value'")
@@ -93,6 +109,46 @@ interface SingleValueInput {
 
             override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
                 return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(this))
+            }
+        }
+
+        @JvmStatic
+        fun fromData(input: DataInput): SingleValueInput = object : SingleValueInput {
+            var used = false
+
+            fun <T> get(read: Function<DataInput, T>): T {
+                if (used) {
+                    throw DataReadException("SingleValueInput was already read")
+                }
+
+                used = true
+
+                return read.apply(input)
+            }
+
+            override fun readBoolean(): Boolean = get(DataInput::readBoolean)
+
+            override fun readByte(): Byte = get(DataInput::readByte)
+
+            override fun readShort(): Short = get(DataInput::readShort)
+
+            override fun readInt(): Int = get(DataInput::readInt)
+
+            override fun readLong(): Long = get(DataInput::readLong)
+
+            override fun readFloat(): Float = get(DataInput::readFloat)
+
+            override fun readDouble(): Double = get(DataInput::readDouble)
+
+            override fun readString(): String = get(DataInput::readUTF)
+
+            override fun readList(): ListInput = get(ListInput::fromData)
+
+            override fun readMap(): MapInput = get(MapInput::fromData)
+
+            override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
+                val present = input.readBoolean()
+                return if (present) Optional.of(ifPresent.apply(this)) else Optional.empty()
             }
         }
     }
