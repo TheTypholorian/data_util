@@ -5,20 +5,23 @@ import java.util.function.BiConsumer
 import kotlin.collections.set
 
 interface MapOutput {
-    fun writeNextEntry(key: String): SingleValueOutput
+    fun writeNextEntry(): SingleValueOutput
 
     companion object {
         @JvmStatic
-        fun toMap(map: MutableMap<String, Any?>): MapOutputResult<Map<String, Any?>> = object :
-            MapOutputResult<Map<String, Any?>> {
+        fun toMap(keys: List<String>, map: MutableMap<String, Any?>): MapOutputResult<Map<String, Any?>> = object : MapOutputResult<Map<String, Any?>> {
+            var index = 0
+
             override fun finish(): Map<String, Any?> {
                 return map
             }
 
-            override fun writeNextEntry(key: String): SingleValueOutput {
-                if (map.containsKey(key)) {
-                    throw DataWriteException("Duplicate key $key")
+            override fun writeNextEntry(): SingleValueOutput {
+                if (index == keys.size) {
+                    throw DataReadException("Already wrote all entries to map")
                 }
+
+                val key = keys[index++]
 
                 return object : SingleValueOutput {
                     override fun writeBoolean(v: Boolean) {
@@ -53,16 +56,16 @@ interface MapOutput {
                         map[key] = v
                     }
 
-                    override fun writeList(size: Int): SingleValueOutput {
+                    override fun writeList(size: Int): ListOutput {
                         val list = ArrayList<Any?>(size)
                         map[key] = list
                         return SingleValueOutput.toList(size, list)
                     }
 
-                    override fun writeMap(): MapOutput {
+                    override fun writeMap(keys: List<String>): MapOutput {
                         val map1 = mutableMapOf<String, Any?>()
                         map[key] = map1
-                        return toMap(map1)
+                        return toMap(keys, map1)
                     }
 
                     override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {
@@ -77,18 +80,19 @@ interface MapOutput {
         }
 
         @JvmStatic
-        fun toStringMap(map: MutableMap<String, String>): MapOutputResult<Map<String, String>> = object :
-            MapOutputResult<Map<String, String>> {
-            val alreadyWrote = map.keys.toMutableSet()
+        fun toStringMap(keys: List<String>, map: MutableMap<String, String>): MapOutputResult<Map<String, String>> = object : MapOutputResult<Map<String, String>> {
+            var index = 0
 
             override fun finish(): Map<String, String> {
                 return map
             }
 
-            override fun writeNextEntry(key: String): SingleValueOutput {
-                if (!alreadyWrote.add(key)) {
-                    throw DataWriteException("Duplicate key $key")
+            override fun writeNextEntry(): SingleValueOutput {
+                if (index == keys.size) {
+                    throw DataReadException("Already wrote all entries to map")
                 }
+
+                val key = keys[index++]
 
                 return object : SingleValueOutput {
                     override fun writeBoolean(v: Boolean) {
@@ -123,12 +127,12 @@ interface MapOutput {
                         map[key] = v
                     }
 
-                    override fun writeList(size: Int): SingleValueOutput {
-                        throw DataWriteException("List values are unsupported")
+                    override fun writeList(size: Int): ListOutput {
+                        throw DataWriteException("List values are unsupported in string maps")
                     }
 
-                    override fun writeMap(): MapOutput {
-                        throw DataWriteException("Map values are unsupported")
+                    override fun writeMap(keys: List<String>): MapOutput {
+                        throw DataWriteException("Map values are unsupported in string maps")
                     }
 
                     override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {

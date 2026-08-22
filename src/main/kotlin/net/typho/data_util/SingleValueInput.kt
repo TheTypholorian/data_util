@@ -23,7 +23,7 @@ interface SingleValueInput {
 
     fun readList(): ListInput
 
-    fun readMap(): MapInput
+    fun readMap(keys: List<String>): MapInput
 
     fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T>
 
@@ -64,7 +64,7 @@ interface SingleValueInput {
 
             override fun readList() = ListInput.fromList(cast())
 
-            override fun readMap() = MapInput.fromMap(cast())
+            override fun readMap(keys: List<String>) = MapInput.fromMap(keys, cast())
 
             override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
                 return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(this))
@@ -103,9 +103,9 @@ interface SingleValueInput {
 
             override fun readString(): String = cast { it }
 
-            override fun readList(): ListInput = throw DataReadException("List values are unsupported")
+            override fun readList(): ListInput = throw DataReadException("List values are unsupported when reading from a string")
 
-            override fun readMap(): MapInput = throw DataReadException("Map values are unsupported")
+            override fun readMap(keys: List<String>): MapInput = throw DataReadException("Map values are unsupported when reading from a string")
 
             override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
                 return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(this))
@@ -116,7 +116,7 @@ interface SingleValueInput {
         fun fromData(input: DataInput): SingleValueInput = object : SingleValueInput {
             var used = false
 
-            fun <T> get(read: Function<DataInput, T>): T {
+            fun <T> read(read: Function<DataInput, T>): T {
                 if (used) {
                     throw DataReadException("SingleValueInput was already read")
                 }
@@ -126,25 +126,25 @@ interface SingleValueInput {
                 return read.apply(input)
             }
 
-            override fun readBoolean(): Boolean = get(DataInput::readBoolean)
+            override fun readBoolean(): Boolean = read(DataInput::readBoolean)
 
-            override fun readByte(): Byte = get(DataInput::readByte)
+            override fun readByte(): Byte = read(DataInput::readByte)
 
-            override fun readShort(): Short = get(DataInput::readShort)
+            override fun readShort(): Short = read(DataInput::readShort)
 
-            override fun readInt(): Int = get(DataInput::readInt)
+            override fun readInt(): Int = read(DataInput::readInt)
 
-            override fun readLong(): Long = get(DataInput::readLong)
+            override fun readLong(): Long = read(DataInput::readLong)
 
-            override fun readFloat(): Float = get(DataInput::readFloat)
+            override fun readFloat(): Float = read(DataInput::readFloat)
 
-            override fun readDouble(): Double = get(DataInput::readDouble)
+            override fun readDouble(): Double = read(DataInput::readDouble)
 
-            override fun readString(): String = get(DataInput::readUTF)
+            override fun readString(): String = read(DataInput::readUTF)
 
-            override fun readList(): ListInput = get(ListInput::fromData)
+            override fun readList(): ListInput = read(ListInput::fromData)
 
-            override fun readMap(): MapInput = get(MapInput::fromData)
+            override fun readMap(keys: List<String>): MapInput = read { MapInput.fromData(keys, it) }
 
             override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
                 val present = input.readBoolean()
