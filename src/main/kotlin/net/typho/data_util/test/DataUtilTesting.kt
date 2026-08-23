@@ -1,12 +1,13 @@
 package net.typho.data_util.test
 
-import net.typho.data_util.codec.DataCodec
-import net.typho.data_util.codec.FieldCodec
-import net.typho.data_util.codec.FieldDefault
-import net.typho.data_util.codec.FieldRange
-import net.typho.data_util.codec.MapDataCodec
+import net.typho.data_util.codec.Codec
+import net.typho.data_util.anno.FieldCodec
+import net.typho.data_util.anno.FieldDefault
+import net.typho.data_util.anno.FieldRange
+import net.typho.data_util.codec.MapCodec
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
+import net.typho.data_util.anno.InlineCodec
 import net.typho.data_util.impl.JsonFormat
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -14,7 +15,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 
 object TestCodecs {
-    val STRING_CODEC = object : DataCodec<String> {
+    val STRING_CODEC = object : Codec<String> {
         override fun read(input: SingleValueInput): String {
             return input.readString() + "_world"
         }
@@ -34,7 +35,7 @@ data class OtherTestData(
     val name: String
 ) {
     companion object {
-        val CODEC = MapDataCodec.reflect(OtherTestData::class.java)
+        val CODEC = Codec.reflect(OtherTestData::class.java)
 
         init {
             println(CODEC)
@@ -42,10 +43,12 @@ data class OtherTestData(
     }
 }
 
+@InlineCodec
 data class TestData(
     @FieldCodec(TestCodecs::class, "STRING_CODEC")
     val a: String,
     @FieldRange(123.0, 123.0)
+    @FieldDefault(value = "123")
     val b: Int,
     @FieldDefault(value = "10203")
     val c: Float,
@@ -53,7 +56,7 @@ data class TestData(
     val other: OtherTestData?
 ) {
     companion object {
-        val CODEC = MapDataCodec.reflect(TestData::class.java)
+        val CODEC = Codec.reflect(TestData::class.java)
 
         init {
             println(CODEC)
@@ -67,11 +70,10 @@ fun main(args: Array<String>) {
         prettyPrint = true
     )
     val test = TestData("hello", 123, 456.789f, null, null)
-    val serializer = format.map(TestData.CODEC)
-    val json = serializer.write(test)
+    val json = format.write(TestData.CODEC, test)
     println(json)
-    println(serializer.read(json))
-    println(serializer.read("""
+    println(format.read(json))
+    println(format.read("""
         {
             "a": "hello",
             "b": 123
@@ -80,9 +82,9 @@ fun main(args: Array<String>) {
 
     val bytes = ByteArrayOutputStream()
     TestData.CODEC.write(SingleValueOutput.toData(DataOutputStream(bytes)), test)
-
-    bytes.toByteArray().forEach { println("0x${it.toHexString()} ${it.toInt().toChar()}") }
-
     println(test)
     println(TestData.CODEC.read(SingleValueInput.fromData(DataInputStream(ByteArrayInputStream(bytes.toByteArray())))))
+
+    val input = SingleValueInput.fromObject("hello_testing")
+    println(TestData.CODEC.read(input))
 }

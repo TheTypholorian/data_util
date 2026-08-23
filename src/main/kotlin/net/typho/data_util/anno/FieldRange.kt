@@ -1,7 +1,7 @@
-package net.typho.data_util.codec
+package net.typho.data_util.anno
 
 /**
- * Specify an inclusive number range for reflected DataCodecs
+ * Specify an inclusive number range for reflected Codecs
  */
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)

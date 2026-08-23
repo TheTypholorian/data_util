@@ -4,7 +4,6 @@ import java.io.DataOutput
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 import java.util.function.Function
-import java.util.function.Supplier
 
 interface SingleValueOutput {
     fun writeBoolean(v: Boolean)
@@ -15,6 +14,8 @@ interface SingleValueOutput {
 
     fun writeInt(v: Int)
 
+    fun writeVarInt(v: Int) = writeInt(v)
+
     fun writeLong(v: Long)
 
     fun writeFloat(v: Float)
@@ -23,11 +24,13 @@ interface SingleValueOutput {
 
     fun writeString(v: String)
 
+    fun <E : Enum<E>> writeEnum(v: E)
+
     fun writeList(size: Int): SequentialOutput
 
     fun writeStaticMap(keys: List<String>): SequentialOutput
 
-    fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>)
+    fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>)
 
     companion object {
         @JvmStatic
@@ -79,6 +82,10 @@ interface SingleValueOutput {
                 write(v)
             }
 
+            override fun <E : Enum<E>> writeEnum(v: E) {
+                writeString(v.name)
+            }
+
             override fun writeList(size: Int): SequentialOutput {
                 val list = mutableListOf<Any?>()
                 write(list)
@@ -91,13 +98,13 @@ interface SingleValueOutput {
                 return SequentialOutput.toMap(keys, map)
             }
 
-            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+            override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                 use()
 
                 if (v == null) {
                     out.accept(null)
                 } else {
-                    ifPresent.accept(toConsumer(out), v)
+                    ifPresent.write(toConsumer(out), v)
                 }
             }
         }
@@ -142,6 +149,19 @@ interface SingleValueOutput {
                 write(v, DataOutput::writeInt)
             }
 
+            override fun writeVarInt(v: Int) {
+                write {
+                    var v = v
+
+                    while ((v and -128) != 0) {
+                        it.writeByte(v and 127 or 128)
+                    }
+
+                    v = v ushr 7
+                    it.writeByte(v)
+                }
+            }
+
             override fun writeLong(v: Long) {
                 write(v, DataOutput::writeLong)
             }
@@ -158,6 +178,10 @@ interface SingleValueOutput {
                 write(v, DataOutput::writeUTF)
             }
 
+            override fun <E : Enum<E>> writeEnum(v: E) {
+                writeInt(v.ordinal)
+            }
+
             override fun writeList(size: Int): SequentialOutput {
                 return write { SequentialOutput.toData(size, it) }
             }
@@ -166,13 +190,13 @@ interface SingleValueOutput {
                 return write { SequentialOutput.toData(keys.size, it, false) }
             }
 
-            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+            override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                 write {
                     if (v == null) {
                         it.writeBoolean(false)
                     } else {
                         it.writeBoolean(true)
-                        ifPresent.accept(toData(output), v)
+                        ifPresent.write(toData(output), v)
                     }
                 }
             }

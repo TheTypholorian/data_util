@@ -1,9 +1,9 @@
-package net.typho.data_util.codec
+package net.typho.data_util.anno
 
 import kotlin.reflect.KClass
 
 /**
- * Specify a default value to use for reflected DataCodecs
+ * Specify a default value to use for reflected Codecs
  */
 @Target(AnnotationTarget.FIELD)
 @Retention(AnnotationRetention.RUNTIME)

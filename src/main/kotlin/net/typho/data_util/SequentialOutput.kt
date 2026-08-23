@@ -69,6 +69,10 @@ interface SequentialOutput {
                         map[key] = v
                     }
 
+                    override fun <E : Enum<E>> writeEnum(v: E) {
+                        writeString(v.name)
+                    }
+
                     override fun writeList(size: Int): SequentialOutput {
                         val list = ArrayList<Any?>(size)
                         map[key] = list
@@ -81,11 +85,11 @@ interface SequentialOutput {
                         return toMap(keys, map1)
                     }
 
-                    override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                    override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                         if (v == null) {
                             map[key] = null
                         } else {
-                            ifPresent.accept(this, v)
+                            ifPresent.write(this, v)
                         }
                     }
                 }
@@ -138,6 +142,10 @@ interface SequentialOutput {
                         map[key] = v
                     }
 
+                    override fun <E : Enum<E>> writeEnum(v: E) {
+                        writeString(v.name)
+                    }
+
                     override fun writeList(size: Int): SequentialOutput {
                         throw DataWriteException("List values are unsupported in string maps")
                     }
@@ -146,9 +154,9 @@ interface SequentialOutput {
                         throw DataWriteException("Map values are unsupported in string maps")
                     }
 
-                    override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                    override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                         if (v != null) {
-                            ifPresent.accept(this, v)
+                            ifPresent.write(this, v)
                         }
                     }
                 }

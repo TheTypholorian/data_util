@@ -1,37 +1,34 @@
 package net.typho.data_util
 
-import net.typho.data_util.codec.MapDataCodec
+import net.typho.data_util.codec.Codec
 import java.io.DataInput
 import java.io.DataOutput
 import java.util.function.Consumer
 
-interface DataFormat<D, R> : DataSerializer<D, R> {
-    fun <C> map(codec: MapDataCodec<C>): DataSerializer<D, C> {
-        val parent = this
+interface DataFormat<D, R> {
+    fun read(input: D): R
 
-        return object : DataSerializer<D, C> {
-            override fun read(input: D): C {
-                return codec.read(parent.createInput(parent.read(input)))
-            }
+    /**
+     * **Note**: It is the caller's responsibility to close this stream.
+     */
+    fun read(bytes: Int, input: DataInput): R
 
-            override fun read(bytes: Int, input: DataInput): C {
-                return codec.read(parent.createInput(parent.read(bytes, input)))
-            }
+    fun <T> read(codec: Codec<T>, input: D): T {
+        return codec.read(createInput(read(input)))
+    }
 
-            override fun write(data: C): D {
-                var result: R? = null
-                val out = parent.createOutput { result = it }
-                codec.write(out, data)
-                return parent.write(result ?: throw DataWriteException("Nothing was written"))
-            }
+    fun write(data: R): D
 
-            override fun write(data: C, output: DataOutput) {
-                var result: R? = null
-                val out = parent.createOutput { result = it }
-                codec.write(out, data)
-                parent.write(result ?: throw DataWriteException("Nothing was written"), output)
-            }
-        }
+    /**
+     * **Note**: It is the caller's responsibility to close this stream.
+     */
+    fun write(data: R, output: DataOutput)
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T> write(codec: Codec<T>, value: T): D {
+        var result: R? = null
+        codec.write(createOutput { result = it }, value)
+        return write(result as R)
     }
 
     fun createInput(parsed: R): SingleValueInput

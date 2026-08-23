@@ -1,9 +1,9 @@
 package net.typho.data_util.codec
 
 interface CodecConverter<C> {
-    fun convert(codec: DataCodec<*>): C
+    fun convert(codec: Codec<*>): C
 
-    fun convert(codec: C): DataCodec<*>
+    fun convert(codec: C): Codec<*>
 
     @Suppress("UNCHECKED_CAST")
     fun castConvert(codec: Any) = convert(codec as C)
@@ -17,12 +17,12 @@ interface CodecConverter<C> {
         }
 
         @Suppress("UNCHECKED_CAST")
-        fun <C> convert(codec: DataCodec<*>, to: Class<C>): C {
+        fun <C> convert(codec: Codec<*>, to: Class<C>): C {
             return (CONVERTERS[to] ?: throw NullPointerException("$to is not a codec, and no CodecConverter has been registered for it")).convert(codec) as C
         }
 
-        fun convert(codec: Any): DataCodec<*> {
-            if (codec is DataCodec<*>) {
+        fun convert(codec: Any): Codec<*> {
+            if (codec is Codec<*>) {
                 return codec
             }
 

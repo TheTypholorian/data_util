@@ -2,11 +2,14 @@ package net.typho.data_util.impl
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
+import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriteException
+import net.typho.data_util.DataWriter
 import net.typho.data_util.SequentialOutput
 import net.typho.data_util.StringDataFormat
 import net.typho.data_util.SequentialInput
 import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueInput.Companion.fromObject
 import net.typho.data_util.SingleValueOutput
 import java.util.function.BiConsumer
 import java.util.function.Consumer
@@ -26,6 +29,14 @@ class PropertiesFormat(
         return object : SingleValueInput {
             var used = false
 
+            fun use() {
+                if (used) {
+                    throw DataReadException("SingleValueInput was already read")
+                }
+
+                used = true
+            }
+
             override fun readBoolean(): Boolean = throw DataReadException("Expected Boolean, got $parsed")
 
             override fun readByte(): Byte = throw DataReadException("Expected Byte, got $parsed")
@@ -40,21 +51,40 @@ class PropertiesFormat(
 
             override fun readDouble(): Double = throw DataReadException("Expected Double, got $parsed")
 
+            override fun <E : Enum<E>> readEnum(cls: Class<E>): E = throw DataReadException("Expected Enum ${cls.name}, got $parsed")
+
             override fun readString(): String = throw DataReadException("Expected String, got $parsed")
 
             override fun readList() = throw DataReadException("Expected List, got $parsed")
 
             override fun readStaticMap(keys: List<String>): SequentialInput {
-                if (used) {
-                    throw DataReadException("SingleValueInput was already read")
-                }
-
-                used = true
+                use()
                 return SequentialInput.fromStringMap(keys, parsed)
             }
 
-            override fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T? {
-                return ifPresent.apply(this)
+            override fun <T> readEither(options: List<DataReader<T>>): T {
+                use()
+
+                if (options.isEmpty()) {
+                    throw DataReadException("Options list for readEither is empty")
+                }
+
+                val errors = mutableListOf<Throwable>()
+
+                for (read in options) {
+                    try {
+                        used = false
+                        return read.read(createInput(parsed))
+                    } catch (t: Throwable) {
+                        errors.add(t)
+                    }
+                }
+
+                throw DataReadException("No options worked: ${errors.joinToString { it.message ?: "" }}")
+            }
+
+            override fun <T> readOptional(ifPresent: DataReader<T>): T? {
+                return ifPresent.read(this)
             }
         }
     }
@@ -81,6 +111,8 @@ class PropertiesFormat(
 
             override fun writeString(v: String) = throw DataWriteException("Properties format does not support root String values")
 
+            override fun <E : Enum<E>> writeEnum(v: E) = throw DataWriteException("Properties format does not support root Enum values")
+
             override fun writeList(size: Int): SequentialOutput = throw DataWriteException("Properties format does not support root List values")
 
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
@@ -92,7 +124,7 @@ class PropertiesFormat(
                 return SequentialOutput.toStringMap(keys, map)
             }
 
-            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+            override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                 throw DataWriteException("Properties format does not support root Optional values")
             }
         }
