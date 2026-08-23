@@ -4,9 +4,10 @@ import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.StringDataFormat
-import net.typho.data_util.MapInput
-import net.typho.data_util.MapOutput
-import net.typho.data_util.MapOutputResult
+import net.typho.data_util.SequentialOutput
+import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueOutput
+import java.util.function.Consumer
 
 class JsonFormat(
     @JvmField
@@ -14,13 +15,12 @@ class JsonFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : StringDataFormat<Any> {
-    @Suppress("UNCHECKED_CAST")
-    override fun createInput(parsed: Any): MapInput {
-        return MapInput.fromMap((parsed as? Map<String, Any?>) ?: throw IllegalArgumentException("Can only create a map input to a map object, got a $parsed"))
+    override fun createInput(parsed: Any): SingleValueInput {
+        return SingleValueInput.fromObject(parsed)
     }
 
-    override fun createOutput(): MapOutputResult<out Any> {
-        return MapOutput.toMap(mutableMapOf())
+    override fun createOutput(out: Consumer<Any>): SingleValueOutput {
+        return SingleValueOutput.toConsumer { out.accept(it ?: throw DataWriteException("Json does not support writing null root values")) }
     }
 
     override fun read(input: String): Any {

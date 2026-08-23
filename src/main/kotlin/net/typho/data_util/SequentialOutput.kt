@@ -1,20 +1,33 @@
 package net.typho.data_util
 
-import java.util.Optional
+import java.io.DataOutput
 import java.util.function.BiConsumer
-import kotlin.collections.set
 
-interface MapOutput {
+interface SequentialOutput {
+    val left: Int
+
     fun writeNextEntry(): SingleValueOutput
 
     companion object {
         @JvmStatic
-        fun toMap(keys: List<String>, map: MutableMap<String, Any?>): MapOutputResult<Map<String, Any?>> = object : MapOutputResult<Map<String, Any?>> {
-            var index = 0
+        fun toList(size: Int, list: MutableList<Any?>): SequentialOutput = object : SequentialOutput {
+            override var left: Int = size
 
-            override fun finish(): Map<String, Any?> {
-                return map
+            override fun writeNextEntry(): SingleValueOutput {
+                if (left == 0) {
+                    throw DataReadException("Wrote too many entries to list of size $size")
+                }
+
+                left--
+                return SingleValueOutput.toConsumer(list::add)
             }
+        }
+
+        @JvmStatic
+        fun toMap(keys: List<String>, map: MutableMap<String, Any?>): SequentialOutput = object : SequentialOutput {
+            var index = 0
+            override val left: Int
+                get() = keys.size - index
 
             override fun writeNextEntry(): SingleValueOutput {
                 if (index == keys.size) {
@@ -56,23 +69,23 @@ interface MapOutput {
                         map[key] = v
                     }
 
-                    override fun writeList(size: Int): ListOutput {
+                    override fun writeList(size: Int): SequentialOutput {
                         val list = ArrayList<Any?>(size)
                         map[key] = list
-                        return SingleValueOutput.toList(size, list)
+                        return toList(size, list)
                     }
 
-                    override fun writeMap(keys: List<String>): MapOutput {
+                    override fun writeStaticMap(keys: List<String>): SequentialOutput {
                         val map1 = mutableMapOf<String, Any?>()
                         map[key] = map1
                         return toMap(keys, map1)
                     }
 
-                    override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {
-                        if (optional.isPresent) {
-                            ifPresent.accept(this, optional.get())
-                        } else {
+                    override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                        if (v == null) {
                             map[key] = null
+                        } else {
+                            ifPresent.accept(this, v)
                         }
                     }
                 }
@@ -80,12 +93,10 @@ interface MapOutput {
         }
 
         @JvmStatic
-        fun toStringMap(keys: List<String>, map: MutableMap<String, String>): MapOutputResult<Map<String, String>> = object : MapOutputResult<Map<String, String>> {
+        fun toStringMap(keys: List<String>, map: MutableMap<String, String>): SequentialOutput = object : SequentialOutput {
             var index = 0
-
-            override fun finish(): Map<String, String> {
-                return map
-            }
+            override val left: Int
+                get() = keys.size - index
 
             override fun writeNextEntry(): SingleValueOutput {
                 if (index == keys.size) {
@@ -127,19 +138,40 @@ interface MapOutput {
                         map[key] = v
                     }
 
-                    override fun writeList(size: Int): ListOutput {
+                    override fun writeList(size: Int): SequentialOutput {
                         throw DataWriteException("List values are unsupported in string maps")
                     }
 
-                    override fun writeMap(keys: List<String>): MapOutput {
+                    override fun writeStaticMap(keys: List<String>): SequentialOutput {
                         throw DataWriteException("Map values are unsupported in string maps")
                     }
 
-                    override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {
-                        if (optional.isPresent) {
-                            ifPresent.accept(this, optional.get())
+                    override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                        if (v != null) {
+                            ifPresent.accept(this, v)
                         }
                     }
+                }
+            }
+        }
+
+        @JvmOverloads
+        @JvmStatic
+        fun toData(size: Int, output: DataOutput, writeSize: Boolean = true): SequentialOutput {
+            if (writeSize) {
+                output.writeInt(size)
+            }
+
+            return object : SequentialOutput {
+                override var left: Int = size
+
+                override fun writeNextEntry(): SingleValueOutput {
+                    if (left == 0) {
+                        throw DataReadException("Wrote too many entries to list of size $size")
+                    }
+
+                    left--
+                    return SingleValueOutput.toData(output)
                 }
             }
         }

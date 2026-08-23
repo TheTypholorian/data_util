@@ -1,8 +1,8 @@
 package net.typho.data_util
 
 import java.io.DataInput
-import java.util.Optional
 import java.util.function.Function
+import kotlin.jvm.java
 
 interface SingleValueInput {
     fun readBoolean(): Boolean
@@ -21,23 +21,27 @@ interface SingleValueInput {
 
     fun readString(): String
 
-    fun readList(): ListInput
+    fun readList(): SequentialInput
 
-    fun readMap(keys: List<String>): MapInput
+    fun readStaticMap(keys: List<String>): SequentialInput
 
-    fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T>
+    fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T?
 
     companion object {
         @JvmStatic
         fun fromObject(value: Any?): SingleValueInput = object : SingleValueInput {
             var used = false
 
-            inline fun <reified T : Any> cast(): T {
+            fun use() {
                 if (used) {
                     throw DataReadException("SingleValueInput was already read")
                 }
 
                 used = true
+            }
+
+            inline fun <reified T> cast(): T {
+                use()
 
                 if (value is T) {
                     return value
@@ -62,12 +66,13 @@ interface SingleValueInput {
 
             override fun readString(): String = cast()
 
-            override fun readList() = ListInput.fromList(cast())
+            override fun readList() = SequentialInput.fromList(cast())
 
-            override fun readMap(keys: List<String>) = MapInput.fromMap(keys, cast())
+            override fun readStaticMap(keys: List<String>) = SequentialInput.fromMap(keys, cast())
 
-            override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
-                return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(this))
+            override fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T? {
+                use()
+                return if (value == null) null else ifPresent.apply(fromObject(value))
             }
         }
 
@@ -75,12 +80,16 @@ interface SingleValueInput {
         fun fromString(value: String?): SingleValueInput = object : SingleValueInput {
             var used = false
 
-            inline fun <reified T : Any> cast(converter: Function<String, T?>): T {
+            fun use() {
                 if (used) {
                     throw DataReadException("SingleValueInput was already read")
                 }
 
                 used = true
+            }
+
+            inline fun <reified T> cast(converter: Function<String, T?>): T {
+                use()
 
                 value?.let { converter.apply(it)?.let { return it } }
 
@@ -103,12 +112,13 @@ interface SingleValueInput {
 
             override fun readString(): String = cast { it }
 
-            override fun readList(): ListInput = throw DataReadException("List values are unsupported when reading from a string")
+            override fun readList(): SequentialInput = throw DataReadException("List values are unsupported when reading from a string")
 
-            override fun readMap(keys: List<String>): MapInput = throw DataReadException("Map values are unsupported when reading from a string")
+            override fun readStaticMap(keys: List<String>): SequentialInput = throw DataReadException("Map values are unsupported when reading from a string")
 
-            override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
-                return if (value == null) Optional.empty() else Optional.of(ifPresent.apply(this))
+            override fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T? {
+                use()
+                return if (value == null) null else ifPresent.apply(fromString(value))
             }
         }
 
@@ -142,13 +152,15 @@ interface SingleValueInput {
 
             override fun readString(): String = read(DataInput::readUTF)
 
-            override fun readList(): ListInput = read(ListInput::fromData)
+            override fun readList(): SequentialInput = read(SequentialInput::fromData)
 
-            override fun readMap(keys: List<String>): MapInput = read { MapInput.fromData(keys, it) }
+            override fun readStaticMap(keys: List<String>): SequentialInput = read { SequentialInput.fromData(it, keys.size) }
 
-            override fun <T : Any> readOptional(ifPresent: Function<SingleValueInput, T>): Optional<T> {
-                val present = input.readBoolean()
-                return if (present) Optional.of(ifPresent.apply(this)) else Optional.empty()
+            override fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T? {
+                return read {
+                    val present = it.readBoolean()
+                    if (present) ifPresent.apply(fromData(input)) else null
+                }
             }
         }
     }

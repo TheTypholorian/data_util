@@ -1,6 +1,6 @@
 package net.typho.data_util.codec
 
-interface CodecConverter<C : Any> {
+interface CodecConverter<C> {
     fun convert(codec: DataCodec<*>): C
 
     fun convert(codec: C): DataCodec<*>
@@ -12,12 +12,12 @@ interface CodecConverter<C : Any> {
         private val CONVERTERS = mutableMapOf<Class<*>, CodecConverter<*>>()
 
         @JvmStatic
-        fun <C : Any> register(cls: Class<C>, converter: CodecConverter<C>) {
+        fun <C> register(cls: Class<C>, converter: CodecConverter<C>) {
             CONVERTERS[cls] = converter
         }
 
         @Suppress("UNCHECKED_CAST")
-        fun <C : Any> convert(codec: DataCodec<*>, to: Class<C>): C {
+        fun <C> convert(codec: DataCodec<*>, to: Class<C>): C {
             return (CONVERTERS[to] ?: throw NullPointerException("$to is not a codec, and no CodecConverter has been registered for it")).convert(codec) as C
         }
 

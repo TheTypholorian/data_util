@@ -4,12 +4,12 @@ package net.typho.data_util.impl
 class TomlFormat(
 ) : StringDataFormat<Map<String, Any?>> {
     @Suppress("UNCHECKED_CAST")
-    override fun createInput(parsed: Map<String, Any?>): MapInput {
-        return MapInput.fromMap(parsed)
+    override fun createInput(parsed: Map<String, Any?>): SequentialInput {
+        return SequentialInput.fromMap(parsed)
     }
 
-    override fun createOutput(): MapOutputResult<out Map<String, Any?>> {
-        return MapOutput.toMap(mutableMapOf())
+    override fun createOutput(): SequentialOutputResult<out Map<String, Any?>> {
+        return SequentialOutput.toMap(mutableMapOf())
     }
 
     override fun read(input: String): Map<String, Any?> {

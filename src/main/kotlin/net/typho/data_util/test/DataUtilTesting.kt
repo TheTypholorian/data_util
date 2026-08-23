@@ -8,6 +8,10 @@ import net.typho.data_util.codec.MapDataCodec
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.impl.JsonFormat
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 
 object TestCodecs {
     val STRING_CODEC = object : DataCodec<String> {
@@ -51,4 +55,9 @@ fun main(args: Array<String>) {
             "b": 123
         }
     """.trimIndent()))
+
+    val bytes = ByteArrayOutputStream()
+    TestData.CODEC.write(SingleValueOutput.toData(DataOutputStream(bytes)), test)
+    println(test)
+    println(TestData.CODEC.read(SingleValueInput.fromData(DataInputStream(ByteArrayInputStream(bytes.toByteArray())))))
 }

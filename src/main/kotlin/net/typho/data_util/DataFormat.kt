@@ -3,9 +3,10 @@ package net.typho.data_util
 import net.typho.data_util.codec.MapDataCodec
 import java.io.DataInput
 import java.io.DataOutput
+import java.util.function.Consumer
 
 interface DataFormat<D, R> : DataSerializer<D, R> {
-    fun <C : Any> map(codec: MapDataCodec<C>): DataSerializer<D, C> {
+    fun <C> map(codec: MapDataCodec<C>): DataSerializer<D, C> {
         val parent = this
 
         return object : DataSerializer<D, C> {
@@ -18,22 +19,24 @@ interface DataFormat<D, R> : DataSerializer<D, R> {
             }
 
             override fun write(data: C): D {
-                val out = parent.createOutput()
+                var result: R? = null
+                val out = parent.createOutput { result = it }
                 codec.write(out, data)
-                return parent.write(out.finish())
+                return parent.write(result ?: throw DataWriteException("Nothing was written"))
             }
 
             override fun write(data: C, output: DataOutput) {
-                val out = parent.createOutput()
+                var result: R? = null
+                val out = parent.createOutput { result = it }
                 codec.write(out, data)
-                parent.write(out.finish(), output)
+                parent.write(result ?: throw DataWriteException("Nothing was written"), output)
             }
         }
     }
 
-    fun createInput(parsed: R): MapInput
+    fun createInput(parsed: R): SingleValueInput
 
-    fun createOutput(): MapOutputResult<out R>
+    fun createOutput(out: Consumer<R>): SingleValueOutput
 
     companion object {
         @JvmStatic

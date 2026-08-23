@@ -1,26 +1,20 @@
 package net.typho.data_util.codec
 
-import net.typho.data_util.DataReadException
-import net.typho.data_util.MapInput
-import net.typho.data_util.MapOutput
+import net.typho.data_util.SequentialInput
+import net.typho.data_util.SequentialOutput
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
-import net.typho.data_util.or
-import org.jetbrains.annotations.Nullable
 import sun.misc.Unsafe
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-import java.util.Optional
 import java.util.function.BiConsumer
 import java.util.function.Function
 import java.util.function.Supplier
 import kotlin.jvm.java
-import kotlin.jvm.optionals.getOrNull
 import kotlin.reflect.KMutableProperty
-import kotlin.reflect.jvm.kotlinProperty
 
-interface MapDataCodec<T : Any> : DataCodec<T> {
-    data class BuilderEntry<T : Any, V : Any> @JvmOverloads constructor(
+interface MapDataCodec<T> : DataCodec<T> {
+    data class BuilderEntry<T, V>(
         @JvmField
         val key: String,
         @JvmField
@@ -28,33 +22,32 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
         @JvmField
         val getter: Function<T, V>,
         @JvmField
-        val setter: BiConsumer<T, V>,
-        @JvmField
-        val fallback: Optional<V> = Optional.empty<V>()
+        val setter: BiConsumer<T, V>
     ) {
-        fun read(value: T, input: MapInput) {
-            val result = input.readNextEntry(key).map { codec.read(it) }
-            setter.accept(value, result.or(fallback).orElseThrow { throw DataReadException("Missing value") }) // TODO add useful info
+        fun read(value: T, input: SequentialInput) {
+            setter.accept(value, codec.read(input.readNextEntry()))
         }
 
-        fun write(value: T, output: MapOutput) {
-            codec.write(output.writeNextEntry(key), getter.apply(value))
+        fun write(value: T, output: SequentialOutput) {
+            codec.write(output.writeNextEntry(), getter.apply(value))
         }
     }
+    
+    val keys: List<String>
 
-    fun read(input: MapInput): T
+    fun read(input: SequentialInput): T
 
     override fun read(input: SingleValueInput): T {
-        return read(input.readMap())
+        return read(input.readStaticMap(keys))
     }
 
-    fun write(output: MapOutput, value: T)
+    fun write(output: SequentialOutput, value: T)
 
     override fun write(output: SingleValueOutput, value: T) {
-        write(output.writeMap(), value)
+        write(output.writeStaticMap(keys), value)
     }
 
-    class Builder<T : Any>(
+    class Builder<T>(
         @JvmField
         val constructor: Supplier<T>
     ) {
@@ -63,95 +56,77 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
 
         fun build() = of(constructor, entries)
 
-        @JvmOverloads
-        fun <V : Any> add(key: String, codec: DataCodec<V>, getter: Function<T, V>, setter: BiConsumer<T, V>, fallback: Optional<V> = Optional.empty()): Builder<T> {
-            entries.add(BuilderEntry(key, codec, getter, setter, fallback))
+        fun <V> add(key: String, codec: DataCodec<V>, getter: Function<T, V>, setter: BiConsumer<T, V>): Builder<T> {
+            entries.add(BuilderEntry(key, codec, getter, setter))
             return this
         }
 
-        @JvmOverloads
-        fun <V : Any> add(property: KMutableProperty<V>, codec: DataCodec<V>, fallback: Optional<V> = Optional.empty()): Builder<T> {
-            return add(property.name, codec, { parent -> property.getter.call(parent) }, { parent, value -> property.setter.call(parent, value) }, fallback)
+        fun <V> add(property: KMutableProperty<V>, codec: DataCodec<V>): Builder<T> {
+            return add(property.name, codec, { parent -> property.getter.call(parent) }, { parent, value -> property.setter.call(parent, value) })
         }
 
-        @JvmOverloads
-        fun addBool(key: String, getter: Function<T, Boolean>, setter: BiConsumer<T, Boolean>, fallback: Optional<Boolean> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.BOOL, getter, setter, fallback)
+        fun addBool(key: String, getter: Function<T, Boolean>, setter: BiConsumer<T, Boolean>): Builder<T> {
+            return add(key, DataCodec.BOOL, getter, setter)
         }
 
-        @JvmOverloads
-        fun addBool(property: KMutableProperty<Boolean>, fallback: Optional<Boolean> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.BOOL, fallback)
+        fun addBool(property: KMutableProperty<Boolean>): Builder<T> {
+            return add(property, DataCodec.BOOL)
         }
 
-        @JvmOverloads
-        fun addByte(key: String, getter: Function<T, Byte>, setter: BiConsumer<T, Byte>, fallback: Optional<Byte> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.BYTE, getter, setter, fallback)
+        fun addByte(key: String, getter: Function<T, Byte>, setter: BiConsumer<T, Byte>): Builder<T> {
+            return add(key, DataCodec.BYTE, getter, setter)
         }
 
-        @JvmOverloads
-        fun addByte(property: KMutableProperty<Byte>, fallback: Optional<Byte> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.BYTE, fallback)
+        fun addByte(property: KMutableProperty<Byte>): Builder<T> {
+            return add(property, DataCodec.BYTE)
         }
 
-        @JvmOverloads
-        fun addShort(key: String, getter: Function<T, Short>, setter: BiConsumer<T, Short>, fallback: Optional<Short> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.SHORT, getter, setter, fallback)
+        fun addShort(key: String, getter: Function<T, Short>, setter: BiConsumer<T, Short>): Builder<T> {
+            return add(key, DataCodec.SHORT, getter, setter)
         }
 
-        @JvmOverloads
-        fun addShort(property: KMutableProperty<Short>, fallback: Optional<Short> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.SHORT, fallback)
+        fun addShort(property: KMutableProperty<Short>): Builder<T> {
+            return add(property, DataCodec.SHORT)
         }
 
-        @JvmOverloads
-        fun addInt(key: String, getter: Function<T, Int>, setter: BiConsumer<T, Int>, fallback: Optional<Int> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.INT, getter, setter, fallback)
+        fun addInt(key: String, getter: Function<T, Int>, setter: BiConsumer<T, Int>): Builder<T> {
+            return add(key, DataCodec.INT, getter, setter)
         }
 
-        @JvmOverloads
-        fun addInt(property: KMutableProperty<Int>, fallback: Optional<Int> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.INT, fallback)
+        fun addInt(property: KMutableProperty<Int>): Builder<T> {
+            return add(property, DataCodec.INT)
         }
 
-        @JvmOverloads
-        fun addLong(key: String, getter: Function<T, Long>, setter: BiConsumer<T, Long>, fallback: Optional<Long> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.LONG, getter, setter, fallback)
+        fun addLong(key: String, getter: Function<T, Long>, setter: BiConsumer<T, Long>): Builder<T> {
+            return add(key, DataCodec.LONG, getter, setter)
         }
 
-        @JvmOverloads
-        fun addLong(property: KMutableProperty<Long>, fallback: Optional<Long> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.LONG, fallback)
+        fun addLong(property: KMutableProperty<Long>): Builder<T> {
+            return add(property, DataCodec.LONG)
         }
 
-        @JvmOverloads
-        fun addFloat(key: String, getter: Function<T, Float>, setter: BiConsumer<T, Float>, fallback: Optional<Float> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.FLOAT, getter, setter, fallback)
+        fun addFloat(key: String, getter: Function<T, Float>, setter: BiConsumer<T, Float>): Builder<T> {
+            return add(key, DataCodec.FLOAT, getter, setter)
         }
 
-        @JvmOverloads
-        fun addFloat(property: KMutableProperty<Float>, fallback: Optional<Float> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.FLOAT, fallback)
+        fun addFloat(property: KMutableProperty<Float>): Builder<T> {
+            return add(property, DataCodec.FLOAT)
         }
 
-        @JvmOverloads
-        fun addDouble(key: String, getter: Function<T, Double>, setter: BiConsumer<T, Double>, fallback: Optional<Double> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.DOUBLE, getter, setter, fallback)
+        fun addDouble(key: String, getter: Function<T, Double>, setter: BiConsumer<T, Double>): Builder<T> {
+            return add(key, DataCodec.DOUBLE, getter, setter)
         }
 
-        @JvmOverloads
-        fun addDouble(property: KMutableProperty<Double>, fallback: Optional<Double> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.DOUBLE, fallback)
+        fun addDouble(property: KMutableProperty<Double>): Builder<T> {
+            return add(property, DataCodec.DOUBLE)
         }
 
-        @JvmOverloads
-        fun addString(key: String, getter: Function<T, String>, setter: BiConsumer<T, String>, fallback: Optional<String> = Optional.empty()): Builder<T> {
-            return add(key, DataCodec.STRING, getter, setter, fallback)
+        fun addString(key: String, getter: Function<T, String>, setter: BiConsumer<T, String>): Builder<T> {
+            return add(key, DataCodec.STRING, getter, setter)
         }
 
-        @JvmOverloads
-        fun addString(property: KMutableProperty<String>, fallback: Optional<String> = Optional.empty()): Builder<T> {
-            return add(property, DataCodec.STRING, fallback)
+        fun addString(property: KMutableProperty<String>): Builder<T> {
+            return add(property, DataCodec.STRING)
         }
     }
 
@@ -172,17 +147,19 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
         }
 
         @JvmStatic
-        fun <T : Any> build(
+        fun <T> build(
             constructor: Supplier<T>,
             builder: Builder<T>.() -> Unit
         ) = Builder(constructor).apply(builder).build()
 
         @JvmStatic
-        fun <T : Any> of(
+        fun <T> of(
             constructor: Supplier<T>,
             entries: List<BuilderEntry<T, *>>
         ) = object : MapDataCodec<T> {
-            override fun read(input: MapInput): T {
+            override val keys = entries.map { it.key }
+
+            override fun read(input: SequentialInput): T {
                 val value = constructor.get()
 
                 for (entry in entries) {
@@ -192,7 +169,7 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
                 return value
             }
 
-            override fun write(output: MapOutput, value: T) {
+            override fun write(output: SequentialOutput, value: T) {
                 for (entry in entries) {
                     entry.write(value, output)
                 }
@@ -203,18 +180,13 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
          * @param reverseInheritanceOrder defines where superclass fields are in the constructor, True = at the end and False = at the start (defaults to false because it's the IntelliJ default)
          */
         @Suppress("UNCHECKED_CAST")
-        @JvmOverloads
         @JvmStatic
-        fun <T : Any> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): MapDataCodec<T> {
+        fun <T> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): MapDataCodec<T> {
             data class Entry(
                 @JvmField
                 val field: Field,
                 @JvmField
-                val codec: DataCodec<*>,
-                @JvmField
-                val optional: Boolean,
-                @JvmField
-                val default: Any?
+                val codec: DataCodec<*>
             )
 
             val fields = mutableListOf<Field>()
@@ -239,73 +211,21 @@ interface MapDataCodec<T : Any> : DataCodec<T> {
                 it.parameterTypes.contentEquals(types)
             } ?: throw IllegalArgumentException("$cls is missing a constructor matching ${fields.map { "${it.type} ${it.name}" }}")
 
-            val entries = fields.map { field ->
-                val fallback = Optional.ofNullable(field.annotations.filterIsInstance<FieldDefault>().firstOrNull())
-                    .map { anno ->
-                        var target = anno.owner.java
-
-                        if (target == Any::class.java) {
-                            when (field.type) {
-                                Boolean::class.java, java.lang.Boolean::class.java -> return@map anno.value.toBoolean()
-                                Byte::class.java, java.lang.Byte::class.java -> return@map anno.value.toByte()
-                                Short::class.java, java.lang.Short::class.java -> return@map anno.value.toShort()
-                                Int::class.java, Integer::class.java -> return@map anno.value.toInt()
-                                Long::class.java, java.lang.Long::class.java -> return@map anno.value.toLong()
-                                Float::class.java, java.lang.Float::class.java -> return@map anno.value.toFloat()
-                                Double::class.java, java.lang.Double::class.java -> return@map anno.value.toDouble()
-                                String::class.java -> return@map anno.value
-                                else -> target = field.type
-                            }
-                        }
-
-                        try {
-                            val defaultField = target.getDeclaredField(anno.value)
-
-                            if (!Modifier.isStatic(defaultField.modifiers)) {
-                                throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a non-static field")
-                            }
-
-                            if (!field.type.isAssignableFrom(defaultField.type)) {
-                                throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a field that isn't the same type as the field")
-                            }
-
-                            defaultField.isAccessible = true
-
-                            return@map defaultField.get(null)
-                        } catch (e: NoSuchFieldException) {
-                            throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a nonexistent field")
-                        }
-                    }
-
-                Entry(
-                    field,
-                    DataCodec.getFieldCodec(cls, field),
-                    fallback.isPresent || field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true,
-                    fallback.getOrNull()
-                )
-            }
+            val entries = fields.map { field -> Entry(field, DataCodec.getFieldCodec(cls, field)) }
 
             return object : MapDataCodec<T> {
-                override fun read(input: MapInput): T {
-                    val args = entries.map { (field, codec, optional, fallback) ->
-                        val value = input.readNextEntryOptional(field.name).map { codec.read(it) }
+                override val keys = entries.map { it.field.name }
 
-                        if (value.isPresent) {
-                            return@map value.get()
-                        } else if (optional) {
-                            return@map fallback
-                        } else {
-                            throw DataReadException("Missing field ${field.name} and no default") // TODO better errors
-                        }
-                    }
+                override fun read(input: SequentialInput): T {
+                    val args = entries.map { it.codec.read(input.readNextEntry()) }
                     return constructor.newInstance(*args.toTypedArray()) as T
                 }
 
-                fun <V : Any> write(field: Field, codec: DataCodec<V>, value: T, output: MapOutput) {
-                    codec.write(output.writeNextEntry(field.name), field.get(value) as V)
+                fun <V> write(field: Field, codec: DataCodec<V>, value: T, output: SequentialOutput) {
+                    codec.write(output.writeNextEntry(), field.get(value) as V)
                 }
 
-                override fun write(output: MapOutput, value: T) {
+                override fun write(output: SequentialOutput, value: T) {
                     for (entry in entries) {
                         write(entry.field, entry.codec, value, output)
                     }

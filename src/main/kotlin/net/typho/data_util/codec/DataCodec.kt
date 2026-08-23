@@ -4,6 +4,7 @@ import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
+import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import java.util.function.BiConsumer
@@ -15,10 +16,11 @@ import kotlin.Int
 import kotlin.Long
 import kotlin.Short
 import kotlin.jvm.java
+import kotlin.reflect.jvm.kotlinProperty
 
-interface DataCodec<T : Any> {
+interface DataCodec<T> {
     companion object {
-        private fun <T : Any> simple(read: Function<SingleValueInput, T>, write: BiConsumer<SingleValueOutput, T>) = object : DataCodec<T> {
+        private fun <T> simple(read: Function<SingleValueInput, T>, write: BiConsumer<SingleValueOutput, T>) = object : DataCodec<T> {
             override fun read(input: SingleValueInput): T {
                 return read.apply(input)
             }
@@ -57,7 +59,7 @@ interface DataCodec<T : Any> {
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
-        fun <T : Any> getPrimitiveCodec(cls: Class<T>): DataCodec<T>? {
+        fun <T> getPrimitiveCodec(cls: Class<T>): DataCodec<T>? {
             return when (cls) {
                 Boolean::class.java, java.lang.Boolean::class.java -> BOOL as DataCodec<T>
                 Byte::class.java, java.lang.Byte::class.java -> BYTE as DataCodec<T>
@@ -99,7 +101,7 @@ interface DataCodec<T : Any> {
 
                         codec = codecField.get(null) as DataCodec<*>
                         break
-                    } catch (e: NoSuchFieldException) {
+                    } catch (_: NoSuchFieldException) {
                         throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} has @FieldCodec pointing to a nonexistent field")
                     }
                 }
@@ -112,7 +114,7 @@ interface DataCodec<T : Any> {
                     val codecField = field.type.getDeclaredField("CODEC")
                     codecField.isAccessible = true
                     codec = codecField.get(null) as DataCodec<*>
-                } catch (e: NoSuchFieldException) {
+                } catch (_: NoSuchFieldException) {
                 }
             }
 
@@ -135,7 +137,51 @@ interface DataCodec<T : Any> {
                 }
             }
 
-            return codec1
+            val default = field.annotations.filterIsInstance<FieldDefault>().firstOrNull()?.let { anno ->
+                var target = anno.owner.java
+
+                if (target == Any::class.java) {
+                    when (field.type) {
+                        Boolean::class.java, java.lang.Boolean::class.java -> return@let anno.value.toBoolean()
+                        Byte::class.java, java.lang.Byte::class.java -> return@let anno.value.toByte()
+                        Short::class.java, java.lang.Short::class.java -> return@let anno.value.toShort()
+                        Int::class.java, Integer::class.java -> return@let anno.value.toInt()
+                        Long::class.java, java.lang.Long::class.java -> return@let anno.value.toLong()
+                        Float::class.java, java.lang.Float::class.java -> return@let anno.value.toFloat()
+                        Double::class.java, java.lang.Double::class.java -> return@let anno.value.toDouble()
+                        String::class.java -> return@let anno.value
+                        else -> target = field.type
+                    }
+                }
+
+                try {
+                    val defaultField = target.getDeclaredField(anno.value)
+
+                    if (!Modifier.isStatic(defaultField.modifiers)) {
+                        throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a non-static field")
+                    }
+
+                    if (!field.type.isAssignableFrom(defaultField.type)) {
+                        throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a field that isn't the same type as the field")
+                    }
+
+                    defaultField.isAccessible = true
+
+                    return@let defaultField.get(null)
+                } catch (e: NoSuchFieldException) {
+                    throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a nonexistent field")
+                }
+            }
+
+            fun <T> generics(codec: DataCodec<T>): DataCodec<*> {
+                return if (default != null || field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true) {
+                    if (default == null) codec.optional() else codec.optional(default as T)
+                } else {
+                    codec
+                }
+            }
+
+            return generics(codec1)
         }
     }
 
@@ -162,6 +208,32 @@ interface DataCodec<T : Any> {
                 }
 
                 parent.write(output, value)
+            }
+        }
+    }
+
+    fun optional(): DataCodec<T?> {
+        val parent = this
+        return object : DataCodec<T?> {
+            override fun read(input: SingleValueInput): T? {
+                return input.readOptional(parent::read)
+            }
+
+            override fun write(output: SingleValueOutput, value: T?) {
+                output.writeOptional(value, parent::write)
+            }
+        }
+    }
+
+    fun optional(default: T): DataCodec<T> {
+        val parent = this
+        return object : DataCodec<T> {
+            override fun read(input: SingleValueInput): T {
+                return input.readOptional(parent::read) ?: default
+            }
+
+            override fun write(output: SingleValueOutput, value: T) {
+                output.writeOptional(value, parent::write)
             }
         }
     }

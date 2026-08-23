@@ -1,10 +1,10 @@
 package net.typho.data_util
 
 import java.io.DataOutput
-import java.util.Optional
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 import java.util.function.Function
+import java.util.function.Supplier
 
 interface SingleValueOutput {
     fun writeBoolean(v: Boolean)
@@ -23,23 +23,27 @@ interface SingleValueOutput {
 
     fun writeString(v: String)
 
-    fun writeList(size: Int): ListOutput
+    fun writeList(size: Int): SequentialOutput
 
-    fun writeMap(keys: List<String>): MapOutput
+    fun writeStaticMap(keys: List<String>): SequentialOutput
 
-    fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>)
+    fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>)
 
     companion object {
         @JvmStatic
         fun toConsumer(out: Consumer<Any?>): SingleValueOutput = object : SingleValueOutput {
             var used = false
 
-            fun <T> write(value: T) {
+            fun use() {
                 if (used) {
                     throw DataReadException("SingleValueOutput was already written")
                 }
 
                 used = true
+            }
+
+            fun <T> write(value: T) {
+                use()
                 out.accept(value)
             }
 
@@ -75,23 +79,25 @@ interface SingleValueOutput {
                 write(v)
             }
 
-            override fun writeList(size: Int): ListOutput {
+            override fun writeList(size: Int): SequentialOutput {
                 val list = mutableListOf<Any?>()
                 write(list)
-                return ListOutput.toList(list)
+                return SequentialOutput.toList(size, list)
             }
 
-            override fun writeMap(keys: List<String>): MapOutput {
+            override fun writeStaticMap(keys: List<String>): SequentialOutput {
                 val map = mutableMapOf<String, Any?>()
                 write(map)
-                return MapOutput.toMap(keys, map)
+                return SequentialOutput.toMap(keys, map)
             }
 
-            override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {
-                if (optional.isPresent) {
-                    ifPresent.accept(this, optional.get())
+            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                use()
+
+                if (v == null) {
+                    out.accept(null)
                 } else {
-                    write(null)
+                    ifPresent.accept(toConsumer(out), v)
                 }
             }
         }
@@ -152,21 +158,21 @@ interface SingleValueOutput {
                 write(v, DataOutput::writeUTF)
             }
 
-            override fun writeList(size: Int): ListOutput {
-                return write { ListOutput.toData(size, it) }
+            override fun writeList(size: Int): SequentialOutput {
+                return write { SequentialOutput.toData(size, it) }
             }
 
-            override fun writeMap(keys: List<String>): MapOutput {
-                return write { MapOutput.toData(keys, it) }
+            override fun writeStaticMap(keys: List<String>): SequentialOutput {
+                return write { SequentialOutput.toData(keys.size, it, false) }
             }
 
-            override fun <T : Any> writeOptional(optional: Optional<T>, ifPresent: BiConsumer<SingleValueOutput, T>) {
+            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
                 write {
-                    if (optional.isPresent) {
-                        it.writeBoolean(true)
-                        ifPresent.accept(this, optional.get())
-                    } else {
+                    if (v == null) {
                         it.writeBoolean(false)
+                    } else {
+                        it.writeBoolean(true)
+                        ifPresent.accept(toData(output), v)
                     }
                 }
             }

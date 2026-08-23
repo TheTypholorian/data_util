@@ -2,10 +2,15 @@ package net.typho.data_util.impl
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
+import net.typho.data_util.DataWriteException
+import net.typho.data_util.SequentialOutput
 import net.typho.data_util.StringDataFormat
-import net.typho.data_util.MapInput
-import net.typho.data_util.MapOutput
-import net.typho.data_util.MapOutputResult
+import net.typho.data_util.SequentialInput
+import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueOutput
+import java.util.function.BiConsumer
+import java.util.function.Consumer
+import java.util.function.Function
 
 class PropertiesFormat(
     @JvmField
@@ -17,12 +22,80 @@ class PropertiesFormat(
         }
     }
 
-    override fun createInput(parsed: Map<String, String>): MapInput {
-        return MapInput.fromStringMap(parsed)
+    override fun createInput(parsed: Map<String, String>): SingleValueInput {
+        return object : SingleValueInput {
+            var used = false
+
+            override fun readBoolean(): Boolean = throw DataReadException("Expected Boolean, got $parsed")
+
+            override fun readByte(): Byte = throw DataReadException("Expected Byte, got $parsed")
+
+            override fun readShort(): Short = throw DataReadException("Expected Short, got $parsed")
+
+            override fun readInt(): Int = throw DataReadException("Expected Int, got $parsed")
+
+            override fun readLong(): Long = throw DataReadException("Expected Long, got $parsed")
+
+            override fun readFloat(): Float = throw DataReadException("Expected Float, got $parsed")
+
+            override fun readDouble(): Double = throw DataReadException("Expected Double, got $parsed")
+
+            override fun readString(): String = throw DataReadException("Expected String, got $parsed")
+
+            override fun readList() = throw DataReadException("Expected List, got $parsed")
+
+            override fun readStaticMap(keys: List<String>): SequentialInput {
+                if (used) {
+                    throw DataReadException("SingleValueInput was already read")
+                }
+
+                used = true
+                return SequentialInput.fromStringMap(keys, parsed)
+            }
+
+            override fun <T> readOptional(ifPresent: Function<SingleValueInput, T>): T? {
+                return ifPresent.apply(this)
+            }
+        }
     }
 
-    override fun createOutput(): MapOutputResult<out Map<String, String>> {
-        return MapOutput.toStringMap(mutableMapOf())
+    override fun createOutput(out: Consumer<Map<String, String>>): SingleValueOutput {
+        val map = mutableMapOf<String, String>()
+        out.accept(map)
+        return object : SingleValueOutput {
+            var used = false
+
+            override fun writeBoolean(v: Boolean) = throw DataWriteException("Properties format does not support root Boolean values")
+
+            override fun writeByte(v: Byte) = throw DataWriteException("Properties format does not support root Byte values")
+
+            override fun writeShort(v: Short) = throw DataWriteException("Properties format does not support root Short values")
+
+            override fun writeInt(v: Int) = throw DataWriteException("Properties format does not support root Int values")
+
+            override fun writeLong(v: Long) = throw DataWriteException("Properties format does not support root Long values")
+
+            override fun writeFloat(v: Float) = throw DataWriteException("Properties format does not support root Float values")
+
+            override fun writeDouble(v: Double) = throw DataWriteException("Properties format does not support root Double values")
+
+            override fun writeString(v: String) = throw DataWriteException("Properties format does not support root String values")
+
+            override fun writeList(size: Int): SequentialOutput = throw DataWriteException("Properties format does not support root List values")
+
+            override fun writeStaticMap(keys: List<String>): SequentialOutput {
+                if (used) {
+                    throw DataWriteException("SingleValueOutput was already written")
+                }
+
+                used = true
+                return SequentialOutput.toStringMap(keys, map)
+            }
+
+            override fun <T> writeOptional(v: T?, ifPresent: BiConsumer<SingleValueOutput, T>) {
+                throw DataWriteException("Properties format does not support root Optional values")
+            }
+        }
     }
 
     override fun read(input: String): Map<String, String> {
