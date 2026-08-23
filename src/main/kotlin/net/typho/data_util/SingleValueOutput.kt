@@ -99,12 +99,16 @@ interface SingleValueOutput {
             }
 
             override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
-                use()
+                try {
+                    use()
 
-                if (v == null) {
-                    out.accept(null)
-                } else {
-                    ifPresent.write(toConsumer(out), v)
+                    if (v == null) {
+                        out.accept(null)
+                    } else {
+                        ifPresent.write(toConsumer(out), v)
+                    }
+                } catch (e: RuntimeException) {
+                    throw DataWriteException("Error while writing optional value $v", e, true, false)
                 }
             }
         }
@@ -191,13 +195,17 @@ interface SingleValueOutput {
             }
 
             override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
-                write {
-                    if (v == null) {
-                        it.writeBoolean(false)
-                    } else {
-                        it.writeBoolean(true)
-                        ifPresent.write(toData(output), v)
+                try {
+                    write {
+                        if (v == null) {
+                            it.writeBoolean(false)
+                        } else {
+                            it.writeBoolean(true)
+                            ifPresent.write(toData(output), v)
+                        }
                     }
+                } catch (e: RuntimeException) {
+                    throw DataWriteException("Error while writing optional value $v", e, true, false)
                 }
             }
         }

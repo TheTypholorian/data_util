@@ -1,5 +1,7 @@
 package net.typho.data_util.codec
 
+import net.typho.data_util.DataReadException
+import net.typho.data_util.DataWriteException
 import net.typho.data_util.SequentialInput
 import net.typho.data_util.SequentialOutput
 import net.typho.data_util.SingleValueInput
@@ -24,11 +26,19 @@ interface MapCodec<T> : Codec<T> {
         val setter: BiConsumer<T, V>
     ) {
         fun read(value: T, input: SequentialInput) {
-            setter.accept(value, codec.read(input.readNextEntry()))
+            try {
+                setter.accept(value, codec.read(input.readNextEntry()))
+            } catch (e: RuntimeException) {
+                throw DataReadException("Error while reading map entry $key", e, true, false)
+            }
         }
 
         fun write(value: T, output: SequentialOutput) {
-            codec.write(output.writeNextEntry(), getter.apply(value))
+            try {
+                codec.write(output.writeNextEntry(), getter.apply(value))
+            } catch (e: RuntimeException) {
+                throw DataWriteException("Error while writing map entry $key", e, true, false)
+            }
         }
     }
 

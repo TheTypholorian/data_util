@@ -1,6 +1,5 @@
 package net.typho.data_util.codec
 
-import jdk.nashorn.tools.ShellFunctions.input
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriteException
@@ -16,7 +15,6 @@ import net.typho.data_util.anno.InlineCodec
 import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-import java.util.function.BiConsumer
 import java.util.function.Function
 import java.util.function.Predicate
 import kotlin.Double
@@ -76,11 +74,19 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         fun <E : Enum<E>> enumCodec(cls: Class<E>): Codec<E> {
             return object : Codec<E> {
                 override fun read(input: SingleValueInput): E {
-                    return input.readEnum(cls)
+                    try {
+                        return input.readEnum(cls)
+                    } catch (e: RuntimeException) {
+                        throw DataReadException("Error while reading enum entry of class $cls", e, true, false)
+                    }
                 }
 
                 override fun write(output: SingleValueOutput, value: E) {
-                    output.writeEnum(value)
+                    try {
+                        output.writeEnum(value)
+                    } catch (e: RuntimeException) {
+                        throw DataWriteException("Error while writing enum entry of class $cls", e, true, false)
+                    }
                 }
 
                 override fun toString(): String {
@@ -283,12 +289,22 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 override val keys = entries.map { it.field.name }
 
                 override fun read(input: SequentialInput): T {
-                    val args = entries.map { it.codec.read(input.readNextEntry()) }
+                    val args = entries.map {
+                        try {
+                            it.codec.read(input.readNextEntry())
+                        } catch (e: RuntimeException) {
+                            throw DataReadException("Error while reading map entry ${it.field.name}", e, true, false)
+                        }
+                    }
                     return constructor.newInstance(*args.toTypedArray()) as T
                 }
 
                 fun <V> write(field: Field, codec: Codec<V>, value: T, output: SequentialOutput) {
-                    codec.write(output.writeNextEntry(), field.get(value) as V)
+                    try {
+                        codec.write(output.writeNextEntry(), field.get(value) as V)
+                    } catch (e: RuntimeException) {
+                        throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
+                    }
                 }
 
                 override fun write(output: SequentialOutput, value: T) {
@@ -313,7 +329,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
                 either(codec, listOf(object : DataReader<T> {
                     override fun read(input: SingleValueInput): T {
-                        val args = entries.mapIndexed { index, entry -> if (index == primary.index) primary.value.codec.read(input) else (entry.codec as OptionalCodec).default }
+                        val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
+                            try {
+                                primary.value.codec.read(input)
+                            } catch (e: RuntimeException) {
+                                throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
+                            }
+                        } else (entry.codec as OptionalCodec).default }
                         return constructor.newInstance(*args.toTypedArray()) as T
                     }
 

@@ -36,14 +36,9 @@ data class OtherTestData(
 ) {
     companion object {
         val CODEC = Codec.reflect(OtherTestData::class.java)
-
-        init {
-            println(CODEC)
-        }
     }
 }
 
-@InlineCodec
 data class TestData(
     @FieldCodec(TestCodecs::class, "STRING_CODEC")
     val a: String,
@@ -72,10 +67,9 @@ fun main(args: Array<String>) {
     val test = TestData("hello", 123, 456.789f, null, null)
     val json = format.write(TestData.CODEC, test)
     println(json)
-    println(format.read(json))
-    println(format.read("""
+    println(format.read(TestData.CODEC, json))
+    println(format.read(TestData.CODEC, """
         {
-            "a": "hello",
             "b": 123
         }
     """.trimIndent()))

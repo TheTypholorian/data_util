@@ -103,8 +103,12 @@ interface SingleValueInput {
             }
 
             override fun <T> readOptional(ifPresent: DataReader<T>): T? {
-                use()
-                return if (value == null) null else ifPresent.read(fromObject(value))
+                try {
+                    use()
+                    return if (value == null) null else ifPresent.read(fromObject(value))
+                } catch (e: RuntimeException) {
+                    throw DataReadException("Error while reading optional value", e, true, false)
+                }
             }
         }
 
@@ -175,8 +179,12 @@ interface SingleValueInput {
             }
 
             override fun <T> readOptional(ifPresent: DataReader<T>): T? {
-                use()
-                return if (value == null) null else ifPresent.read(fromString(value))
+                try {
+                    use()
+                    return if (value == null) null else ifPresent.read(fromString(value))
+                } catch (e: RuntimeException) {
+                    throw DataReadException("Error while reading optional value", e, true, false)
+                }
             }
         }
 
@@ -245,9 +253,13 @@ interface SingleValueInput {
             }
 
             override fun <T> readOptional(ifPresent: DataReader<T>): T? {
-                return read {
-                    val present = it.readBoolean()
-                    if (present) ifPresent.read(fromData(input)) else null
+                try {
+                    return read {
+                        val present = it.readBoolean()
+                        if (present) ifPresent.read(fromData(input)) else null
+                    }
+                } catch (e: RuntimeException) {
+                    throw DataReadException("Error while reading optional value", e, true, false)
                 }
             }
         }
