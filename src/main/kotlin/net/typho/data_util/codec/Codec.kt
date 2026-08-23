@@ -224,9 +224,12 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 throw IllegalArgumentException("Must specify at least one option")
             }
 
+            val all = mutableListOf<DataReader<T>>(primary)
+            all.addAll(options)
+
             return object : Codec<T> {
                 override fun read(input: SingleValueInput): T {
-                    return input.readEither(options)
+                    return input.readEither(all)
                 }
 
                 override fun write(output: SingleValueOutput, value: T) {
