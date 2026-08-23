@@ -20,13 +20,17 @@ import kotlin.reflect.jvm.kotlinProperty
 
 interface DataCodec<T> {
     companion object {
-        private fun <T> simple(read: Function<SingleValueInput, T>, write: BiConsumer<SingleValueOutput, T>) = object : DataCodec<T> {
+        private fun <T> simple(name: String, read: Function<SingleValueInput, T>, write: BiConsumer<SingleValueOutput, T>) = object : DataCodec<T> {
             override fun read(input: SingleValueInput): T {
                 return read.apply(input)
             }
 
             override fun write(output: SingleValueOutput, value: T) {
                 write.accept(output, value)
+            }
+
+            override fun toString(): String {
+                return name
             }
         }
 
@@ -41,21 +45,21 @@ interface DataCodec<T> {
         )
 
         @JvmField
-        val BOOL = simple(SingleValueInput::readBoolean, SingleValueOutput::writeBoolean)
+        val BOOL = simple("Boolean Codec", SingleValueInput::readBoolean, SingleValueOutput::writeBoolean)
         @JvmField
-        val BYTE = simple(SingleValueInput::readByte, SingleValueOutput::writeByte)
+        val BYTE = simple("Byte Codec", SingleValueInput::readByte, SingleValueOutput::writeByte)
         @JvmField
-        val SHORT = simple(SingleValueInput::readShort, SingleValueOutput::writeShort)
+        val SHORT = simple("Short Codec", SingleValueInput::readShort, SingleValueOutput::writeShort)
         @JvmField
-        val INT = simple(SingleValueInput::readInt, SingleValueOutput::writeInt)
+        val INT = simple("Int Codec", SingleValueInput::readInt, SingleValueOutput::writeInt)
         @JvmField
-        val LONG = simple(SingleValueInput::readLong, SingleValueOutput::writeLong)
+        val LONG = simple("Long Codec", SingleValueInput::readLong, SingleValueOutput::writeLong)
         @JvmField
-        val FLOAT = simple(SingleValueInput::readFloat, SingleValueOutput::writeFloat)
+        val FLOAT = simple("Float Codec", SingleValueInput::readFloat, SingleValueOutput::writeFloat)
         @JvmField
-        val DOUBLE = simple(SingleValueInput::readDouble, SingleValueOutput::writeDouble)
+        val DOUBLE = simple("Double Codec", SingleValueInput::readDouble, SingleValueOutput::writeDouble)
         @JvmField
-        val STRING = simple(SingleValueInput::readString, SingleValueOutput::writeString)
+        val STRING = simple("String Codec", SingleValueInput::readString, SingleValueOutput::writeString)
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
@@ -131,7 +135,8 @@ interface DataCodec<T> {
                             val n = (it as Number).toDouble()
                             n >= anno.min && n <= anno.max
                         },
-                        { "$it must be between ${anno.min} and ${anno.max}" }
+                        { "$it must be between ${anno.min} and ${anno.max}" },
+                        "range [${anno.min}, ${anno.max}]"
                     )
                     break
                 }
@@ -189,7 +194,7 @@ interface DataCodec<T> {
 
     fun write(output: SingleValueOutput, value: T)
 
-    fun withCondition(condition: Predicate<T>, error: Function<T, String>): DataCodec<T> {
+    fun withCondition(condition: Predicate<T>, error: Function<T, String>, name: String): DataCodec<T> {
         val parent = this
         return object : DataCodec<T> {
             override fun read(input: SingleValueInput): T {
@@ -209,6 +214,10 @@ interface DataCodec<T> {
 
                 parent.write(output, value)
             }
+
+            override fun toString(): String {
+                return "$parent, with condition $name"
+            }
         }
     }
 
@@ -222,6 +231,10 @@ interface DataCodec<T> {
             override fun write(output: SingleValueOutput, value: T?) {
                 output.writeOptional(value, parent::write)
             }
+
+            override fun toString(): String {
+                return "$parent, optional"
+            }
         }
     }
 
@@ -234,6 +247,10 @@ interface DataCodec<T> {
 
             override fun write(output: SingleValueOutput, value: T) {
                 output.writeOptional(value, parent::write)
+            }
+
+            override fun toString(): String {
+                return "$parent, optional with default $default"
             }
         }
     }

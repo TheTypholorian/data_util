@@ -174,6 +174,10 @@ interface MapDataCodec<T> : DataCodec<T> {
                     entry.write(value, output)
                 }
             }
+
+            override fun toString(): String {
+                return "Simple MapDataCodec, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.key}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
+            }
         }
 
         /**
@@ -229,6 +233,10 @@ interface MapDataCodec<T> : DataCodec<T> {
                     for (entry in entries) {
                         write(entry.field, entry.codec, value, output)
                     }
+                }
+
+                override fun toString(): String {
+                    return "Reflected MapDataCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
                 }
             }
         }
