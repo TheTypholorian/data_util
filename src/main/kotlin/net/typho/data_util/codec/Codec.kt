@@ -15,6 +15,7 @@ import net.typho.data_util.anno.InlineCodec
 import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import java.lang.reflect.ParameterizedType
 import java.util.function.Function
 import java.util.function.Predicate
 import kotlin.Double
@@ -114,6 +115,23 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
+        fun getClassCodec(owner: Class<*>, type: Class<*>): Codec<*>? {
+            var codec = getPrimitiveCodec(type)
+
+            if (codec == null) {
+                try {
+                    val codecField = type.getDeclaredField("CODEC")
+                    codecField.isAccessible = true
+                    codec = codecField.get(null) as Codec<*>
+                } catch (_: NoSuchFieldException) {
+                }
+            }
+
+            return codec
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        @JvmStatic
         fun getFieldCodec(owner: Class<*>, field: Field): Codec<*> {
             var codec: Codec<*>? = null
 
@@ -146,14 +164,32 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 }
             }
 
-            codec = codec ?: getPrimitiveCodec(field.type)
+            codec = codec ?: getClassCodec(owner, field.type)
 
             if (codec == null) {
-                try {
-                    val codecField = field.type.getDeclaredField("CODEC")
-                    codecField.isAccessible = true
-                    codec = codecField.get(null) as Codec<*>
-                } catch (_: NoSuchFieldException) {
+                if (List::class.java.isAssignableFrom(field.type) && field.type != List::class.java) {
+                    throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} extends List but doesn't provide a codec, automatic list codecs are only for raw List types.")
+                }
+
+                var type = field.genericType as ParameterizedType
+                var depth = 0
+
+                while (type.rawType == List::class.java) {
+                    depth++
+
+                    val arg = type.actualTypeArguments[0]
+
+                    if (arg is ParameterizedType) {
+                        type = arg
+                    } else if (arg is Class<*>) {
+                        codec = getClassCodec(owner, arg) ?: throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} is a List and its deep type has no automatic codec")
+                    }
+                }
+
+                if (depth > 0 && codec != null) {
+                    repeat(depth) {
+                        codec = codec!!.listOf()
+                    }
                 }
             }
 
@@ -410,6 +446,24 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
             override fun toString(): String {
                 return "$parent, optional with default $default"
+            }
+        }
+    }
+
+    fun listOf(): Codec<List<T>> {
+        val parent = this
+        return object : Codec<List<T>> {
+            override fun read(input: SingleValueInput): List<T> {
+                return input.readList().toList(parent::read)
+            }
+
+            override fun write(output: SingleValueOutput, value: List<T>) {
+                val list = output.writeList(value.size)
+                value.forEach { parent.write(list.writeNextEntry(), it) }
+            }
+
+            override fun toString(): String {
+                return "$parent as list"
             }
         }
     }

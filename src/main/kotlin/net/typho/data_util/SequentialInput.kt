@@ -8,18 +8,18 @@ interface SequentialInput {
 
     fun readNextEntry(): SingleValueInput
 
-    fun <T> toList(read: Function<SequentialInput, T>): List<T> {
+    fun <T> toList(read: Function<SingleValueInput, T>): List<T> {
         val list = ArrayList<T>(left)
 
         repeat(left) {
-            list.add(read.apply(this@SequentialInput))
+            list.add(read.apply(readNextEntry()))
         }
 
         return list
     }
 
-    fun <T> iterator(read: Function<SequentialInput, T>) = object : Iterator<T> {
-        override fun next() = read.apply(this@SequentialInput)
+    fun <T> iterator(read: Function<SingleValueInput, T>) = object : Iterator<T> {
+        override fun next() = read.apply(readNextEntry())
 
         override fun hasNext() = left > 0
     }
