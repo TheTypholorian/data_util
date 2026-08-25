@@ -382,7 +382,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
                         fun <V> writeInline(field: Field, codec: Codec<V>, value: T, output: SingleValueOutput) {
                             try {
-                                codec.write(output, value as V)
+                                codec.write(output, field.get(value) as V)
                             } catch (e: RuntimeException) {
                                 throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
                             }
