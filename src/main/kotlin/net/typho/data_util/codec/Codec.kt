@@ -356,6 +356,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
 
             return if (cls.isAnnotationPresent(InlineCodec::class.java)) {
+                val inline = cls.getAnnotation(InlineCodec::class.java)
                 val candidates = entries.withIndex().filter { it.value.codec !is OptionalCodec }
 
                 if (candidates.size != 1) {
@@ -364,22 +365,98 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
                 val primary = candidates.first()
 
-                either(codec, listOf(object : DataReader<T> {
-                    override fun read(input: SingleValueInput): T {
-                        val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
-                            try {
-                                primary.value.codec.read(input)
-                            } catch (e: RuntimeException) {
-                                throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
-                            }
-                        } else (entry.codec as OptionalCodec).default }
-                        return constructor.newInstance(*args.toTypedArray()) as T
-                    }
+                if (inline.writeInlined) {
+                    either(object : MapCodec<T> {
+                        override val keys = entries.map { it.field.name }
 
-                    override fun toString(): String {
-                        return "Reflected inline reader of $cls"
-                    }
-                }))
+                        override fun read(input: SequentialInput): T {
+                            val args = entries.map {
+                                try {
+                                    it.codec.read(input.readNextEntry())
+                                } catch (e: RuntimeException) {
+                                    throw DataReadException("Error while reading map entry ${it.field.name}", e, true, false)
+                                }
+                            }
+                            return constructor.newInstance(*args.toTypedArray()) as T
+                        }
+
+                        fun <V> writeInline(field: Field, codec: Codec<V>, value: T, output: SingleValueOutput) {
+                            try {
+                                codec.write(output, value as V)
+                            } catch (e: RuntimeException) {
+                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
+                            }
+                        }
+
+                        fun <V> writeAlreadyGotten(field: Field, codec: Codec<V>, value: Any?, output: SequentialOutput) {
+                            try {
+                                codec.write(output.writeNextEntry(), value as V)
+                            } catch (e: RuntimeException) {
+                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
+                            }
+                        }
+
+                        fun <V> write(field: Field, codec: Codec<V>, value: T, output: SequentialOutput) {
+                            try {
+                                codec.write(output.writeNextEntry(), field.get(value) as V)
+                            } catch (e: RuntimeException) {
+                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
+                            }
+                        }
+
+                        override fun write(output: SequentialOutput, value: T) {
+                            for (entry in entries) {
+                                write(entry.field, entry.codec, value, output)
+                            }
+                        }
+
+                        override fun write(output: SingleValueOutput, value: T) {
+                            val values = entries.map { entry -> entry.field.get(value) }
+                            var canInline = true
+
+                            values.forEachIndexed { index, value ->
+                                val codec = entries[index].codec
+
+                                if (codec is OptionalCodec) {
+                                    if (codec.default != value) {
+                                        canInline = false
+                                    }
+                                }
+                            }
+
+                            if (canInline) {
+                                writeInline(primary.value.field, primary.value.codec, value, output)
+                            } else {
+                                val map = output.writeStaticMap(keys)
+
+                                entries.forEachIndexed { index, entry ->
+                                    writeAlreadyGotten(entry.field, entry.codec, values[index], map)
+                                }
+                            }
+                        }
+
+                        override fun toString(): String {
+                            return "Reflected MapCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
+                        }
+                    }, listOf(codec))
+                } else {
+                    either(codec, listOf(object : DataReader<T> {
+                        override fun read(input: SingleValueInput): T {
+                            val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
+                                try {
+                                    primary.value.codec.read(input)
+                                } catch (e: RuntimeException) {
+                                    throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
+                                }
+                            } else (entry.codec as OptionalCodec).default }
+                            return constructor.newInstance(*args.toTypedArray()) as T
+                        }
+
+                        override fun toString(): String {
+                            return "Reflected inline reader of $cls"
+                        }
+                    }))
+                }
             } else codec
         }
     }

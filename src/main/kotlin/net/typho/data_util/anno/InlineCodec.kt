@@ -27,4 +27,6 @@ package net.typho.data_util.anno
  */
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
-annotation class InlineCodec
+annotation class InlineCodec(
+    val writeInlined: Boolean = false
+)
