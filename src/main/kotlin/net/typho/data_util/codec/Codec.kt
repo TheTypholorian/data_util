@@ -183,6 +183,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                         type = arg
                     } else if (arg is Class<*>) {
                         codec = getClassCodec(owner, arg) ?: throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} is a List and its deep type has no automatic codec")
+                        break
                     }
                 }
 
