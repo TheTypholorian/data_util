@@ -53,7 +53,7 @@ class PropertiesFormat(
 
             override fun readDouble(): Double = throw DataReadException("Expected Double, got $parsed")
 
-            override fun <E : Enum<E>> readEnum(cls: Class<E>): E = throw DataReadException("Expected Enum ${cls.name}, got $parsed")
+            override fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E = throw DataReadException("Expected Enum ${cls.name}, got $parsed")
 
             override fun readString(): String = throw DataReadException("Expected String, got $parsed")
 

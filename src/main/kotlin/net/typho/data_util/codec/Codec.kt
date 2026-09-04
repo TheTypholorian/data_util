@@ -72,12 +72,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         @JvmField
         val STRING = simple("String Codec", SingleValueInput::readString, SingleValueOutput::writeString)
 
+        @JvmOverloads
         @JvmStatic
-        fun <E : Enum<E>> enumCodec(cls: Class<E>): Codec<E> {
+        fun <E : Enum<E>> enumCodec(cls: Class<E>, caseSensitive: Boolean = false): Codec<E> {
             return object : Codec<E> {
                 override fun read(input: SingleValueInput): E {
                     try {
-                        return input.readEnum(cls)
+                        return input.readEnum(cls, caseSensitive)
                     } catch (e: RuntimeException) {
                         throw DataReadException("Error while reading enum entry of class $cls", e, true, false)
                     }

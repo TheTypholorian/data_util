@@ -1,6 +1,5 @@
 package net.typho.data_util
 
-import jdk.nashorn.tools.ShellFunctions.input
 import java.io.DataInput
 import java.util.function.Function
 import kotlin.jvm.java
@@ -24,7 +23,7 @@ interface SingleValueInput {
 
     fun readString(): String
 
-    fun <E : Enum<E>> readEnum(cls: Class<E>): E
+    fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E
 
     fun readList(): SequentialInput
 
@@ -81,9 +80,9 @@ interface SingleValueInput {
 
                 override fun readString(): String = castAndUse()
 
-                override fun <E : Enum<E>> readEnum(cls: Class<E>): E {
+                override fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E {
                     val name = readString()
-                    return cls.enumConstants.firstOrNull { it.name == name } ?: throw EnumConstantNotPresentException(cls, name)
+                    return cls.enumConstants.firstOrNull { it.name.equals(name, !caseSensitive) } ?: throw EnumConstantNotPresentException(cls, name)
                 }
 
                 override fun readList() = SequentialInput.fromList(castAndUse())
@@ -183,9 +182,9 @@ interface SingleValueInput {
 
             override fun readString(): String = cast { it }
 
-            override fun <E : Enum<E>> readEnum(cls: Class<E>): E {
+            override fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E {
                 val name = readString()
-                return cls.enumConstants.firstOrNull { it.name == name } ?: throw EnumConstantNotPresentException(cls, name)
+                return cls.enumConstants.firstOrNull { it.name.equals(name, !caseSensitive) } ?: throw EnumConstantNotPresentException(cls, name)
             }
 
             override fun readList(): SequentialInput = throw DataReadException("List values are unsupported when reading from a string")
@@ -283,7 +282,7 @@ interface SingleValueInput {
 
             override fun readString(): String = read(DataInput::readUTF)
 
-            override fun <E : Enum<E>> readEnum(cls: Class<E>): E = cls.enumConstants[readVarInt()]
+            override fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E = cls.enumConstants[readVarInt()]
 
             override fun readList(): SequentialInput = read(SequentialInput::fromData)
 
