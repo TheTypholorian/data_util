@@ -101,13 +101,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         @JvmStatic
         fun <T> getPrimitiveCodec(cls: Class<T>, isVarInt: Boolean = false): Codec<T>? {
             return when (cls) {
-                Boolean::class.java, java.lang.Boolean::class.java -> BOOL as Codec<T>
-                Byte::class.java, java.lang.Byte::class.java -> BYTE as Codec<T>
-                Short::class.java, java.lang.Short::class.java -> SHORT as Codec<T>
-                Int::class.java, Integer::class.java -> (if (isVarInt) VAR_INT else INT) as Codec<T>
-                Long::class.java, java.lang.Long::class.java -> LONG as Codec<T>
-                Float::class.java, java.lang.Float::class.java -> FLOAT as Codec<T>
-                Double::class.java, java.lang.Double::class.java -> DOUBLE as Codec<T>
+                Boolean::class.java, Boolean::class.javaObjectType -> BOOL as Codec<T>
+                Byte::class.java, Byte::class.javaObjectType -> BYTE as Codec<T>
+                Short::class.java, Short::class.javaObjectType -> SHORT as Codec<T>
+                Int::class.java, Int::class.javaObjectType -> (if (isVarInt) VAR_INT else INT) as Codec<T>
+                Long::class.java, Long::class.javaObjectType -> LONG as Codec<T>
+                Float::class.java, Float::class.javaObjectType -> FLOAT as Codec<T>
+                Double::class.java, Double::class.javaObjectType -> DOUBLE as Codec<T>
                 String::class.java -> STRING as Codec<T>
                 else -> if (cls.isEnum) enumCodec(cls as Class<out Enum<*>>) as Codec<T> else null
             }
