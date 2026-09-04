@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
+import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
 import kotlin.Double
@@ -92,6 +93,24 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
                 override fun toString(): String {
                     return "Enum Codec for $cls"
+                }
+            }
+        }
+
+        @JvmStatic
+        fun <V> unboundedMap(valueCodec: Codec<V>): Codec<Map<String, V>> {
+            return object : Codec<Map<String, V>> {
+                override fun read(input: SingleValueInput): Map<String, V> {
+                    val map = mutableMapOf<String, V>()
+                    input.readDynamicMap().forEach { (key, value) -> map[key] = valueCodec.read(value) }
+                    return map
+                }
+
+                override fun write(
+                    output: SingleValueOutput,
+                    value: Map<String, V>
+                ) {
+                    output.writeDynamicMap(value.map { (key, value) -> key to Consumer { valueCodec.write(it, value) } })
                 }
             }
         }

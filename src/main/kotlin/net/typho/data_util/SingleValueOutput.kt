@@ -28,6 +28,8 @@ interface SingleValueOutput {
 
     fun writeList(size: Int): SequentialOutput
 
+    fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>)
+
     fun writeStaticMap(keys: List<String>): SequentialOutput
 
     fun writeVersion(key: String): SingleValueOutput
@@ -95,6 +97,15 @@ interface SingleValueOutput {
                 return SequentialOutput.toList(size, list)
             }
 
+            override fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>) {
+                val map = map ?: mutableMapOf<String, Any?>().also {
+                    write(it)
+                    map = it
+                }
+
+                entries.forEach { (key, value) -> value.accept(toConsumer { map[key] = it }) }
+            }
+
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
                 return SequentialOutput.toMap(keys, map ?: mutableMapOf<String, Any?>().also {
                     write(it)
@@ -128,6 +139,18 @@ interface SingleValueOutput {
                     throw DataWriteException("Error while writing optional value $v", e, true, false)
                 }
             }
+        }
+
+        @JvmStatic
+        fun DataOutput.writeVarInt(v: Int) {
+            var v = v
+
+            while ((v and -128) != 0) {
+                writeByte(v and 127 or 128)
+            }
+
+            v = v ushr 7
+            writeByte(v)
         }
 
         @JvmStatic
@@ -172,16 +195,7 @@ interface SingleValueOutput {
             }
 
             override fun writeVarInt(v: Int) {
-                write {
-                    var v = v
-
-                    while ((v and -128) != 0) {
-                        it.writeByte(v and 127 or 128)
-                    }
-
-                    v = v ushr 7
-                    it.writeByte(v)
-                }
+                write { it.writeVarInt(v) }
             }
 
             override fun writeLong(v: Long) {
@@ -206,6 +220,17 @@ interface SingleValueOutput {
 
             override fun writeList(size: Int): SequentialOutput {
                 return write { SequentialOutput.toData(size, it) }
+            }
+
+            override fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>) {
+                write {
+                    it.writeVarInt(entries.size)
+
+                    entries.forEach { (key, value) ->
+                        it.writeUTF(key)
+                        value.accept(toData(it))
+                    }
+                }
             }
 
             override fun writeStaticMap(keys: List<String>): SequentialOutput {

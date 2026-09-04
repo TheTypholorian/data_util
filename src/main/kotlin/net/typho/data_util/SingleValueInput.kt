@@ -1,5 +1,6 @@
 package net.typho.data_util
 
+import jdk.nashorn.tools.ShellFunctions.input
 import java.io.DataInput
 import java.util.function.Function
 import kotlin.jvm.java
@@ -26,6 +27,8 @@ interface SingleValueInput {
     fun <E : Enum<E>> readEnum(cls: Class<E>): E
 
     fun readList(): SequentialInput
+
+    fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>>
 
     fun readStaticMap(keys: List<String>): SequentialInput
 
@@ -84,6 +87,10 @@ interface SingleValueInput {
                 }
 
                 override fun readList() = SequentialInput.fromList(castAndUse())
+
+                override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> {
+                    return castAndUse<Map<String, Any?>>().map { (key, value) -> key to fromObject(value) }.iterator()
+                }
 
                 override fun readStaticMap(keys: List<String>) = SequentialInput.fromMap(keys, castAndUse())
 
@@ -183,6 +190,8 @@ interface SingleValueInput {
 
             override fun readList(): SequentialInput = throw DataReadException("List values are unsupported when reading from a string")
 
+            override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> = throw DataReadException("Map values are unsupported when reading from a string")
+
             override fun readStaticMap(keys: List<String>): SequentialInput = throw DataReadException("Map values are unsupported when reading from a string")
 
             override fun readVersion(key: String): SingleValueInput? {
@@ -221,6 +230,25 @@ interface SingleValueInput {
         }
 
         @JvmStatic
+        fun DataInput.readVarInt(): Int {
+            var out = 0
+            var size = 0
+
+            var next: Int
+
+            do {
+                next = readUnsignedByte()
+                out = out or ((next and 127) shl (size++ * 7))
+
+                if (size > 5) {
+                    throw DataReadException("VarInt too big")
+                }
+            } while ((next and 128) == 128)
+
+            return out
+        }
+
+        @JvmStatic
         fun fromData(input: DataInput): SingleValueInput = object : SingleValueInput {
             var used = false
             val version by lazy { fromData(input) }
@@ -244,23 +272,7 @@ interface SingleValueInput {
             override fun readInt(): Int = read(DataInput::readInt)
 
             override fun readVarInt(): Int {
-                return read {
-                    var out = 0
-                    var size = 0
-
-                    var next: Int
-
-                    do {
-                        next = it.readUnsignedByte()
-                        out = out or ((next and 127) shl (size++ * 7))
-
-                        if (size > 5) {
-                            throw DataReadException("VarInt too big")
-                        }
-                    } while ((next and 128) == 128)
-
-                    return@read out
-                }
+                return read { it.readVarInt() }
             }
 
             override fun readLong(): Long = read(DataInput::readLong)
@@ -274,6 +286,26 @@ interface SingleValueInput {
             override fun <E : Enum<E>> readEnum(cls: Class<E>): E = cls.enumConstants[readVarInt()]
 
             override fun readList(): SequentialInput = read(SequentialInput::fromData)
+
+            override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> {
+                return read {
+                    val size = it.readVarInt()
+                    object : Iterator<Pair<String, SingleValueInput>> {
+                        var index = 0
+
+                        override fun hasNext() = index < size
+
+                        override fun next(): Pair<String, SingleValueInput> {
+                            if (!hasNext()) {
+                                throw NoSuchElementException()
+                            }
+
+                            index++
+                            return it.readUTF() to fromData(input)
+                        }
+                    }
+                }
+            }
 
             override fun readStaticMap(keys: List<String>): SequentialInput = read { SequentialInput.fromData(it, keys.size) }
 

@@ -9,13 +9,10 @@ import net.typho.data_util.SequentialOutput
 import net.typho.data_util.StringDataFormat
 import net.typho.data_util.SequentialInput
 import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueInput.Companion.AlreadyReadValue
 import net.typho.data_util.SingleValueInput.Companion.fromObject
 import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.SingleValueOutput.Companion.toConsumer
-import java.util.function.BiConsumer
 import java.util.function.Consumer
-import java.util.function.Function
 import kotlin.collections.set
 
 class PropertiesFormat(
@@ -61,6 +58,11 @@ class PropertiesFormat(
             override fun readString(): String = throw DataReadException("Expected String, got $parsed")
 
             override fun readList() = throw DataReadException("Expected List, got $parsed")
+
+            override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> {
+                use()
+                return parsed.map { (key, value) -> key to SingleValueInput.fromString(value) }.iterator()
+            }
 
             override fun readStaticMap(keys: List<String>): SequentialInput {
                 use()
@@ -127,6 +129,15 @@ class PropertiesFormat(
             override fun <E : Enum<E>> writeEnum(v: E) = throw DataWriteException("Properties format does not support root Enum values")
 
             override fun writeList(size: Int): SequentialOutput = throw DataWriteException("Properties format does not support root List values")
+
+            override fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>) {
+                if (used) {
+                    throw DataWriteException("SingleValueOutput was already written")
+                }
+
+                used = true
+                entries.forEach { (key, value) -> value.accept(toConsumer { map[key] = it.toString() }) }
+            }
 
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
                 if (used) {

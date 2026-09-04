@@ -1,5 +1,6 @@
 package net.typho.data_util
 
+import net.typho.data_util.SingleValueInput.Companion.readVarInt
 import java.io.DataInput
 import java.util.function.Function
 
@@ -72,7 +73,7 @@ interface SequentialInput {
 
         @JvmOverloads
         @JvmStatic
-        fun fromData(input: DataInput, size: Int = input.readInt()): SequentialInput = object : SequentialInput {
+        fun fromData(input: DataInput, size: Int = input.readVarInt()): SequentialInput = object : SequentialInput {
             var index = 0
             override val left: Int
                 get() = size - index

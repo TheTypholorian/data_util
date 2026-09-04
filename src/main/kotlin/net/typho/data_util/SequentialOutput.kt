@@ -1,5 +1,6 @@
 package net.typho.data_util
 
+import net.typho.data_util.SingleValueOutput.Companion.writeVarInt
 import java.io.DataOutput
 import java.util.function.BiConsumer
 
@@ -71,7 +72,7 @@ interface SequentialOutput {
         @JvmStatic
         fun toData(size: Int, output: DataOutput, writeSize: Boolean = true): SequentialOutput {
             if (writeSize) {
-                output.writeInt(size)
+                output.writeVarInt(size)
             }
 
             return object : SequentialOutput {
