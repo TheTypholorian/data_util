@@ -29,85 +29,113 @@ interface SingleValueInput {
 
     fun readStaticMap(keys: List<String>): SequentialInput
 
+    fun readVersion(key: String): SingleValueInput?
+
     fun <T> readEither(options: List<DataReader<T>>): T
 
     fun <T> readOptional(ifPresent: DataReader<T>): T?
 
     companion object {
+        private object AlreadyReadValue
+
         @JvmStatic
-        fun fromObject(value: Any?): SingleValueInput = object : SingleValueInput {
-            var used = false
+        fun fromObject(value: Any?): SingleValueInput {
+            var value = value
 
-            fun use() {
-                if (used) {
-                    throw DataReadException("SingleValueInput was already read")
-                }
+            return object : SingleValueInput {
+                var used = false
 
-                used = true
-            }
-
-            inline fun <reified T> cast(): T {
-                use()
-
-                if (value is T) {
-                    return value
-                } else {
-                    throw DataReadException("Expected ${T::class.java.name}, got $value")
-                }
-            }
-
-            override fun readBoolean(): Boolean = cast()
-
-            override fun readByte(): Byte = cast()
-
-            override fun readShort(): Short = cast()
-
-            override fun readInt(): Int = cast()
-
-            override fun readLong(): Long = cast()
-
-            override fun readFloat(): Float = cast()
-
-            override fun readDouble(): Double = cast()
-
-            override fun readString(): String = cast()
-
-            override fun <E : Enum<E>> readEnum(cls: Class<E>): E {
-                val name = readString()
-                return cls.enumConstants.firstOrNull { it.name == name } ?: throw EnumConstantNotPresentException(cls, name)
-            }
-
-            override fun readList() = SequentialInput.fromList(cast())
-
-            override fun readStaticMap(keys: List<String>) = SequentialInput.fromMap(keys, cast())
-
-            override fun <T> readEither(options: List<DataReader<T>>): T {
-                use()
-
-                if (options.isEmpty()) {
-                    throw DataReadException("Options list for readEither is empty")
-                }
-
-                val errors = mutableListOf<Throwable>()
-
-                for (read in options) {
-                    try {
-                        used = false
-                        return read.read(fromObject(value))
-                    } catch (t: Throwable) {
-                        errors.add(t)
+                fun use() {
+                    if (used) {
+                        throw DataReadException("SingleValueInput was already read")
                     }
+
+                    used = true
                 }
 
-                throw DataReadException("No options worked for input value $value: ${errors.joinToString { it.message ?: "" }}")
-            }
-
-            override fun <T> readOptional(ifPresent: DataReader<T>): T? {
-                try {
+                inline fun <reified T> castAndUse(): T {
                     use()
-                    return if (value == null) null else ifPresent.read(fromObject(value))
-                } catch (e: RuntimeException) {
-                    throw DataReadException("Error while reading optional value", e, true, false)
+                    return cast()
+                }
+
+                inline fun <reified T> cast(): T {
+                    return value as? T ?: throw DataReadException("Expected ${T::class.java.name}, got $value")
+                }
+
+                override fun readBoolean(): Boolean = castAndUse()
+
+                override fun readByte(): Byte = castAndUse()
+
+                override fun readShort(): Short = castAndUse()
+
+                override fun readInt(): Int = castAndUse()
+
+                override fun readLong(): Long = castAndUse()
+
+                override fun readFloat(): Float = castAndUse()
+
+                override fun readDouble(): Double = castAndUse()
+
+                override fun readString(): String = castAndUse()
+
+                override fun <E : Enum<E>> readEnum(cls: Class<E>): E {
+                    val name = readString()
+                    return cls.enumConstants.firstOrNull { it.name == name } ?: throw EnumConstantNotPresentException(cls, name)
+                }
+
+                override fun readList() = SequentialInput.fromList(castAndUse())
+
+                override fun readStaticMap(keys: List<String>) = SequentialInput.fromMap(keys, castAndUse())
+
+                override fun readVersion(key: String): SingleValueInput? {
+                    val map = cast<Map<String, Any?>>()
+                    val r = if (map.containsKey(key)) {
+                        val version = map[key]
+
+                        if (version == AlreadyReadValue) {
+                            throw DataReadException("Already read version key '$key'")
+                        }
+
+                        val input = fromObject(version)
+                        input
+                    } else {
+                        null
+                    }
+
+                    @Suppress("AssignedValueIsNeverRead")
+                    value = map.toMutableMap().also { it[key] = AlreadyReadValue }
+
+                    return r
+                }
+
+                override fun <T> readEither(options: List<DataReader<T>>): T {
+                    use()
+
+                    if (options.isEmpty()) {
+                        throw DataReadException("Options list for readEither is empty")
+                    }
+
+                    val errors = mutableListOf<Throwable>()
+
+                    for (read in options) {
+                        try {
+                            used = false
+                            return read.read(fromObject(value))
+                        } catch (t: Throwable) {
+                            errors.add(t)
+                        }
+                    }
+
+                    throw DataReadException("No options worked for input value $value: ${errors.joinToString { it.message ?: "" }}")
+                }
+
+                override fun <T> readOptional(ifPresent: DataReader<T>): T? {
+                    try {
+                        use()
+                        return if (value == null) null else ifPresent.read(fromObject(value))
+                    } catch (e: RuntimeException) {
+                        throw DataReadException("Error while reading optional value", e, true, false)
+                    }
                 }
             }
         }
@@ -157,6 +185,10 @@ interface SingleValueInput {
 
             override fun readStaticMap(keys: List<String>): SequentialInput = throw DataReadException("Map values are unsupported when reading from a string")
 
+            override fun readVersion(key: String): SingleValueInput? {
+                throw DataReadException("Version values are unsupported when reading from a string")
+            }
+
             override fun <T> readEither(options: List<DataReader<T>>): T {
                 use()
 
@@ -191,6 +223,7 @@ interface SingleValueInput {
         @JvmStatic
         fun fromData(input: DataInput): SingleValueInput = object : SingleValueInput {
             var used = false
+            val version by lazy { fromData(input) }
 
             fun <T> read(read: Function<DataInput, T>): T {
                 if (used) {
@@ -243,6 +276,8 @@ interface SingleValueInput {
             override fun readList(): SequentialInput = read(SequentialInput::fromData)
 
             override fun readStaticMap(keys: List<String>): SequentialInput = read { SequentialInput.fromData(it, keys.size) }
+
+            override fun readVersion(key: String) = version
 
             override fun <T> readEither(options: List<DataReader<T>>): T {
                 if (options.isEmpty()) {

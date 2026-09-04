@@ -30,12 +30,15 @@ interface SingleValueOutput {
 
     fun writeStaticMap(keys: List<String>): SequentialOutput
 
+    fun writeVersion(key: String): SingleValueOutput
+
     fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>)
 
     companion object {
         @JvmStatic
         fun toConsumer(out: Consumer<Any?>): SingleValueOutput = object : SingleValueOutput {
             var used = false
+            var map: MutableMap<String, Any?>? = null
 
             fun use() {
                 if (used) {
@@ -93,9 +96,23 @@ interface SingleValueOutput {
             }
 
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
-                val map = mutableMapOf<String, Any?>()
-                write(map)
-                return SequentialOutput.toMap(keys, map)
+                return SequentialOutput.toMap(keys, map ?: mutableMapOf<String, Any?>().also {
+                    write(it)
+                    map = it
+                })
+            }
+
+            override fun writeVersion(key: String): SingleValueOutput {
+                val map = map ?: mutableMapOf<String, Any?>().also {
+                    write(it)
+                    map = it
+                }
+
+                if (map.containsKey(key)) {
+                    throw DataWriteException("Already wrote version key '$key'")
+                }
+
+                return toConsumer { map[key] = it }
             }
 
             override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
@@ -116,6 +133,7 @@ interface SingleValueOutput {
         @JvmStatic
         fun toData(output: DataOutput): SingleValueOutput = object : SingleValueOutput {
             var used = false
+            val version by lazy { toData(output) }
 
             fun <T> write(value: T, write: BiConsumer<DataOutput, T>) {
                 if (used) {
@@ -193,6 +211,8 @@ interface SingleValueOutput {
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
                 return write { SequentialOutput.toData(keys.size, it, false) }
             }
+
+            override fun writeVersion(key: String) = version
 
             override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
                 try {

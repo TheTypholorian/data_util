@@ -9,11 +9,14 @@ import net.typho.data_util.SequentialOutput
 import net.typho.data_util.StringDataFormat
 import net.typho.data_util.SequentialInput
 import net.typho.data_util.SingleValueInput
+import net.typho.data_util.SingleValueInput.Companion.AlreadyReadValue
 import net.typho.data_util.SingleValueInput.Companion.fromObject
 import net.typho.data_util.SingleValueOutput
+import net.typho.data_util.SingleValueOutput.Companion.toConsumer
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 import java.util.function.Function
+import kotlin.collections.set
 
 class PropertiesFormat(
     @JvmField
@@ -26,6 +29,8 @@ class PropertiesFormat(
     }
 
     override fun createInput(parsed: Map<String, String>): SingleValueInput {
+        val readVersions = mutableSetOf<String>()
+
         return object : SingleValueInput {
             var used = false
 
@@ -60,6 +65,14 @@ class PropertiesFormat(
             override fun readStaticMap(keys: List<String>): SequentialInput {
                 use()
                 return SequentialInput.fromStringMap(keys, parsed)
+            }
+
+            override fun readVersion(key: String): SingleValueInput? {
+                if (!readVersions.add(key)) {
+                    throw DataReadException("Already read version key '$key'")
+                }
+
+                return if (parsed.containsKey(key)) fromObject(parsed[key]) else null
             }
 
             override fun <T> readEither(options: List<DataReader<T>>): T {
@@ -122,6 +135,14 @@ class PropertiesFormat(
 
                 used = true
                 return SequentialOutput.toStringMap(keys, map)
+            }
+
+            override fun writeVersion(key: String): SingleValueOutput {
+                if (map.containsKey(key)) {
+                    throw DataWriteException("Already wrote version key '$key'")
+                }
+
+                return toConsumer { map[key] = it.toString() }
             }
 
             override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
