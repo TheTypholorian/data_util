@@ -1,6 +1,10 @@
 package net.typho.data_util
 
+import sun.security.krb5.Confounder.bytes
+import java.io.ByteArrayOutputStream
 import java.io.DataInput
+import java.io.PrintStream
+import java.io.PrintWriter
 import java.util.function.Function
 import kotlin.jvm.java
 
@@ -132,7 +136,7 @@ interface SingleValueInput {
                         }
                     }
 
-                    throw DataReadException("No options worked for input value $value: ${errors.joinToString { it.message ?: "" }}")
+                    throw DataReadException("No options worked for input value $value:\n${errors.joinToString(separator = "\n")}")
                 }
 
                 override fun <T> readOptional(ifPresent: DataReader<T>): T? {

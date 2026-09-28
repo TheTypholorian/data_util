@@ -239,13 +239,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
                 if (target == Any::class.java) {
                     when (field.type) {
-                        Boolean::class.java, java.lang.Boolean::class.java -> return@let anno.value.toBoolean()
-                        Byte::class.java, java.lang.Byte::class.java -> return@let anno.value.toByte()
-                        Short::class.java, java.lang.Short::class.java -> return@let anno.value.toShort()
-                        Int::class.java, Integer::class.java -> return@let anno.value.toInt()
-                        Long::class.java, java.lang.Long::class.java -> return@let anno.value.toLong()
-                        Float::class.java, java.lang.Float::class.java -> return@let anno.value.toFloat()
-                        Double::class.java, java.lang.Double::class.java -> return@let anno.value.toDouble()
+                        Boolean::class.java, Boolean::class.javaObjectType -> return@let anno.value.toBoolean()
+                        Byte::class.java, Byte::class.javaObjectType -> return@let anno.value.toByte()
+                        Short::class.java, Short::class.javaObjectType -> return@let anno.value.toShort()
+                        Int::class.java, Int::class.javaObjectType -> return@let anno.value.toInt()
+                        Long::class.java, Long::class.javaObjectType -> return@let anno.value.toLong()
+                        Float::class.java, Float::class.javaObjectType -> return@let anno.value.toFloat()
+                        Double::class.java, Double::class.javaObjectType -> return@let anno.value.toDouble()
                         String::class.java -> return@let anno.value
                         else -> target = field.type
                     }
@@ -384,6 +384,22 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 }
 
                 val primary = candidates.first()
+                val reader = object : DataReader<T> {
+                    override fun read(input: SingleValueInput): T {
+                        val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
+                            try {
+                                primary.value.codec.read(input)
+                            } catch (e: RuntimeException) {
+                                throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
+                            }
+                        } else (entry.codec as OptionalCodec).default }
+                        return constructor.newInstance(*args.toTypedArray()) as T
+                    }
+
+                    override fun toString(): String {
+                        return "Reflected inline reader of $cls"
+                    }
+                }
 
                 if (inline.writeInlined) {
                     either(object : MapCodec<T> {
@@ -458,24 +474,9 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                         override fun toString(): String {
                             return "Reflected MapCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
                         }
-                    }, listOf(codec))
+                    }, listOf(reader))
                 } else {
-                    either(codec, listOf(object : DataReader<T> {
-                        override fun read(input: SingleValueInput): T {
-                            val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
-                                try {
-                                    primary.value.codec.read(input)
-                                } catch (e: RuntimeException) {
-                                    throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
-                                }
-                            } else (entry.codec as OptionalCodec).default }
-                            return constructor.newInstance(*args.toTypedArray()) as T
-                        }
-
-                        override fun toString(): String {
-                            return "Reflected inline reader of $cls"
-                        }
-                    }))
+                    either(codec, listOf(reader))
                 }
             } else codec
         }
