@@ -1,5 +1,8 @@
 package net.typho.data_util
 
+import net.typho.data_util.impl.xml.XMLNode
+import net.typho.data_util.impl.xml.XMLElement
+import net.typho.data_util.impl.xml.XMLText
 import java.io.DataOutput
 import java.util.function.BiConsumer
 import java.util.function.Consumer
@@ -252,6 +255,74 @@ interface SingleValueOutput {
                 } catch (e: RuntimeException) {
                     throw DataWriteException("Error while writing optional value $v", e, true, false)
                 }
+            }
+        }
+
+        @JvmStatic
+        fun toXML(output: Consumer<XMLNode>): SingleValueOutput = object : SingleValueOutput {
+            var used = false
+
+            fun write(child: XMLNode) {
+                if (used) {
+                    throw DataReadException("SingleValueOutput was already written")
+                }
+
+                used = true
+
+                output.accept(child)
+            }
+
+            override fun writeBoolean(v: Boolean) = writeString(v.toString())
+
+            override fun writeByte(v: Byte) = writeString(v.toString())
+
+            override fun writeShort(v: Short) = writeString(v.toString())
+
+            override fun writeInt(v: Int) = writeString(v.toString())
+
+            override fun writeLong(v: Long) = writeString(v.toString())
+
+            override fun writeFloat(v: Float) = writeString(v.toString())
+
+            override fun writeDouble(v: Double) = writeString(v.toString())
+
+            override fun writeString(v: String) {
+                write(XMLText(v))
+            }
+
+            override fun <E : Enum<E>> writeEnum(v: E) = writeString(v.name)
+
+            override fun writeList(size: Int): SequentialOutput {
+                val element = XMLElement("list")
+                write(element)
+                return SequentialOutput.toXML(size, element.children::add)
+            }
+
+            override fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>) {
+                val map = XMLElement("map")
+                write(map)
+                entries.forEach { (key, value) ->
+                    value.accept(toXML {
+                        map.children.add(XMLElement(key, children = mutableListOf(it)))
+                    })
+                }
+            }
+
+            override fun writeStaticMap(keys: List<String>): SequentialOutput {
+                val map = XMLElement("map")
+                write(map)
+                val iterator = keys.iterator()
+                return SequentialOutput.toXML(keys.size) { child ->
+                    map.children.add(XMLElement(iterator.next(), children = mutableListOf(child)))
+                }
+            }
+
+            override fun writeVersion(key: String): SingleValueOutput {
+                TODO("Not yet implemented")
+            }
+
+            override fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>) {
+                TODO("Not yet implemented")
             }
         }
     }

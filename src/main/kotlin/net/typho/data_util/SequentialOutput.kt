@@ -1,8 +1,9 @@
 package net.typho.data_util
 
 import net.typho.data_util.SingleValueOutput.Companion.writeVarInt
+import net.typho.data_util.impl.xml.XMLNode
 import java.io.DataOutput
-import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 interface SequentialOutput {
     val left: Int
@@ -86,6 +87,20 @@ interface SequentialOutput {
                     left--
                     return SingleValueOutput.toData(output)
                 }
+            }
+        }
+
+        @JvmStatic
+        fun toXML(size: Int, output: Consumer<XMLNode>): SequentialOutput = object : SequentialOutput {
+            override var left: Int = size
+
+            override fun writeNextEntry(): SingleValueOutput {
+                if (left == 0) {
+                    throw DataReadException("Wrote too many entries to list of size $size")
+                }
+
+                left--
+                return SingleValueOutput.toXML(output)
             }
         }
     }
