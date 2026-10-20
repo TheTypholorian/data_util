@@ -366,7 +366,7 @@ interface SingleValueInput {
             }
 
             override fun readList(): SequentialInput {
-                TODO("Not yet implemented")
+                return SequentialInput.fromXML()
             }
 
             override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> {

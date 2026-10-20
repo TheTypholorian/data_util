@@ -169,7 +169,7 @@ class XMLFormat : StringDataFormat<XMLElement> {
                 }
             }
 
-            return Tag(name, false /* TODO */, closure, attributes)
+            return Tag(name, false, closure, attributes)
         }
 
         fun readNode(start: Tag = readTag()): XMLNode {
@@ -229,13 +229,13 @@ class XMLFormat : StringDataFormat<XMLElement> {
     override fun write(data: XMLElement) = data.toXMLString()
 
     override fun createInput(parsed: XMLElement): SingleValueInput {
-        TODO("Not yet implemented")
+        return SingleValueInput.fromXML(parsed)
     }
 
     override fun createOutput(out: Consumer<XMLElement>): SingleValueOutput {
-        return SingleValueOutput.toXML {
-            out.accept(XMLElement("root", children = mutableListOf(it)))
-        }
+        val root = XMLElement("root")
+        out.accept(root)
+        return SingleValueOutput.toXML(true, root.children::add)
     }
 
     companion object {

@@ -259,7 +259,7 @@ interface SingleValueOutput {
         }
 
         @JvmStatic
-        fun toXML(output: Consumer<XMLNode>): SingleValueOutput = object : SingleValueOutput {
+        fun toXML(unbox: Boolean, output: Consumer<XMLNode>): SingleValueOutput = object : SingleValueOutput {
             var used = false
 
             fun write(child: XMLNode) {
@@ -293,27 +293,42 @@ interface SingleValueOutput {
             override fun <E : Enum<E>> writeEnum(v: E) = writeString(v.name)
 
             override fun writeList(size: Int): SequentialOutput {
-                val element = XMLElement("list")
-                write(element)
-                return SequentialOutput.toXML(size, element.children::add)
+                val output: Consumer<XMLNode> = if (unbox) {
+                    output
+                } else {
+                    val map = XMLElement("list")
+                    write(map)
+                    Consumer { map.children.add(it) }
+                }
+                return SequentialOutput.toXML(size, output)
             }
 
             override fun writeDynamicMap(entries: List<Pair<String, Consumer<SingleValueOutput>>>) {
-                val map = XMLElement("map")
-                write(map)
+                val output: Consumer<XMLNode> = if (unbox) {
+                    output
+                } else {
+                    val map = XMLElement("map")
+                    write(map)
+                    Consumer { map.children.add(it) }
+                }
                 entries.forEach { (key, value) ->
-                    value.accept(toXML {
-                        map.children.add(XMLElement(key, children = mutableListOf(it)))
+                    value.accept(toXML(true) {
+                        output.accept(XMLElement(key, children = mutableListOf(it)))
                     })
                 }
             }
 
             override fun writeStaticMap(keys: List<String>): SequentialOutput {
-                val map = XMLElement("map")
-                write(map)
+                val output: Consumer<XMLNode> = if (unbox) {
+                    output
+                } else {
+                    val map = XMLElement("map")
+                    write(map)
+                    Consumer { map.children.add(it) }
+                }
                 val iterator = keys.iterator()
                 return SequentialOutput.toXML(keys.size) { child ->
-                    map.children.add(XMLElement(iterator.next(), children = mutableListOf(child)))
+                    output.accept(XMLElement(iterator.next(), children = mutableListOf(child)))
                 }
             }
 

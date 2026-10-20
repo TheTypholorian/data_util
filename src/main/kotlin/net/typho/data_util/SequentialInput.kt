@@ -67,7 +67,7 @@ interface SequentialInput {
                     throw DataReadException("Already read all entries from map")
                 }
 
-                return SingleValueInput.fromObject(map[keys[index++]])
+                return SingleValueInput.fromString(map[keys[index++]])
             }
         }
 
@@ -86,6 +86,16 @@ interface SequentialInput {
                 index--
 
                 return SingleValueInput.fromData(input)
+            }
+        }
+
+        @JvmStatic
+        fun fromXML(): SequentialInput = object : SequentialInput {
+            override val left: Int
+                get() = TODO("Not yet implemented")
+
+            override fun readNextEntry(): SingleValueInput {
+                TODO("Not yet implemented")
             }
         }
     }

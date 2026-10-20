@@ -100,7 +100,7 @@ interface SequentialOutput {
                 }
 
                 left--
-                return SingleValueOutput.toXML(output)
+                return SingleValueOutput.toXML(false, output)
             }
         }
     }
