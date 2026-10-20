@@ -7,8 +7,4 @@ data class XMLComment(
     override fun toXMLString() = "<!--$text-->"
 
     override fun toString() = "XMLComment($text)"
-
-    override fun boxAsElement(): XMLElement {
-        return XMLElement("comment", children = mutableListOf(this))
-    }
 }

@@ -1,5 +1,7 @@
 package net.typho.data_util.impl.xml
 
+import net.typho.data_util.DataReadException
+
 data class XMLElement(
     @JvmField
     var name: String,
@@ -8,6 +10,21 @@ data class XMLElement(
     @JvmField
     var children: MutableList<XMLNode> = mutableListOf()
 ) : XMLNode {
+    fun getChildren(name: String): List<XMLElement> {
+        return children.filterIsInstance<XMLElement>().filter { it.name == name }
+    }
+
+    fun getChild(name: String): XMLElement {
+        val results = getChildren(name)
+        when (results.size) {
+            0 -> throw DataReadException("Element ${this.name} does not have child with name $name")
+            1 -> return results.single()
+            else -> throw DataReadException("Element ${this.name} has multiple children with name $name")
+        }
+    }
+
+    fun contentsAsString() = children.joinToString { it.toXMLString() }
+
     override fun toXMLString() = buildString {
         append('<')
         append(name)
@@ -24,23 +41,22 @@ data class XMLElement(
             append("/>")
         } else {
             append('>')
-
-            children.forEach { append(it.toXMLString()) }
-
+            append(contentsAsString())
             append("</")
             append(name)
             append('>')
         }
     }
 
-    override fun boxAsElement() = this
-
     override fun toString() = buildString {
         append("XMLElement(name=").append(name)
 
-        if (attributes.isNotEmpty()) {
+        attributes.entries.forEach { (key, value) ->
             append(' ')
-            append(attributes.entries.joinToString(separator = " ") { (key, value) -> "$key=\"$value\"" })
+            append(key)
+            append("=\"")
+            append(value)
+            append('"')
         }
 
         if (children.isNotEmpty()) {
