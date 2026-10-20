@@ -1,9 +1,7 @@
 package net.typho.data_util
 
-import net.typho.data_util.codec.Codec
 import java.io.DataInput
 import java.io.DataOutput
-import java.util.function.Consumer
 
 interface DataFormat<D, R> {
     fun read(input: D): R
@@ -13,27 +11,12 @@ interface DataFormat<D, R> {
      */
     fun read(bytes: Int, input: DataInput): R
 
-    fun <T> read(codec: Codec<T>, input: D): T {
-        return codec.read(createInput(read(input)))
-    }
-
     fun write(data: R): D
 
     /**
      * **Note**: It is the caller's responsibility to close this stream.
      */
     fun write(data: R, output: DataOutput)
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T> write(codec: Codec<T>, value: T): D {
-        var result: R? = null
-        codec.write(createOutput { result = it }, value)
-        return write(result as R)
-    }
-
-    fun createInput(parsed: R): SingleValueInput
-
-    fun createOutput(out: Consumer<R>): SingleValueOutput
 
     companion object {
         @JvmStatic

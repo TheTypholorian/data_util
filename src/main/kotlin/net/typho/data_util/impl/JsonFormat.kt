@@ -3,18 +3,18 @@ package net.typho.data_util.impl
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
-import net.typho.data_util.StringDataFormat
-import net.typho.data_util.SequentialOutput
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
+import net.typho.data_util.StringDataFormat
+import net.typho.data_util.TypedDataFormat
 import java.util.function.Consumer
 
-class JsonFormat(
+open class JsonFormat(
     @JvmField
     val allowComments: Boolean = false,
     @JvmField
     val prettyPrint: Boolean = false
-) : StringDataFormat<Any> {
+) : StringDataFormat<Any>, TypedDataFormat<String, Any> {
     override fun createInput(parsed: Any): SingleValueInput {
         return SingleValueInput.fromObject(parsed)
     }
@@ -409,4 +409,6 @@ class JsonFormat(
             else -> throw DataWriteException("Unsupported json value $value")
         }
     }
+
+    companion object Default : JsonFormat()
 }

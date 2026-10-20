@@ -8,4 +8,6 @@ sealed interface XMLNode {
     fun asText() = this as? XMLText
 
     fun asComment() = this as? XMLComment
+
+    fun boxAsElement(): XMLElement
 }

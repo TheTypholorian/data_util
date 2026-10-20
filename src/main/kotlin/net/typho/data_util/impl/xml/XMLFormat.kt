@@ -1,14 +1,13 @@
 package net.typho.data_util.impl.xml
 
 import net.typho.data_util.DataReadException
-import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.StringDataFormat
-import net.typho.data_util.codec.Codec
-import java.util.function.Consumer
 import java.util.function.Predicate
 
-class XMLFormat : StringDataFormat<XMLElement> {
+open class XMLFormat(
+    @JvmField
+    val readComments: Boolean = false
+) : StringDataFormat<XMLElement> {
     override fun read(input: String): XMLElement {
         val input = input.trim()
         var charIndex = 0
@@ -172,9 +171,9 @@ class XMLFormat : StringDataFormat<XMLElement> {
             return Tag(name, false, closure, attributes)
         }
 
-        fun readNode(start: Tag = readTag()): XMLNode {
+        fun readNode(start: Tag = readTag()): XMLNode? {
             if (start.isComment) {
-                return XMLComment(start.text)
+                return if (readComments) XMLComment(start.text) else null
             }
 
             if (start.closure == 1) {
@@ -205,7 +204,7 @@ class XMLFormat : StringDataFormat<XMLElement> {
 
                             return element
                         } else {
-                            element.children.add(readNode(tag))
+                            readNode(tag)?.let { element.children.add(it) }
                         }
                     } else {
                         text.append(char)
@@ -228,17 +227,7 @@ class XMLFormat : StringDataFormat<XMLElement> {
 
     override fun write(data: XMLElement) = data.toXMLString()
 
-    override fun createInput(parsed: XMLElement): SingleValueInput {
-        return SingleValueInput.fromXML(parsed)
-    }
-
-    override fun createOutput(out: Consumer<XMLElement>): SingleValueOutput {
-        val root = XMLElement("root")
-        out.accept(root)
-        return SingleValueOutput.toXML(true, root.children::add)
-    }
-
-    companion object {
+    companion object Default : XMLFormat() {
         @JvmField
         val defaultEntities = mapOf(
             "amp" to "&",
@@ -292,18 +281,9 @@ class XMLFormat : StringDataFormat<XMLElement> {
             }
         }
 
-        data class Test(
-            @JvmField
-            val abc: Int,
-            @JvmField
-            val def: Float,
-            @JvmField
-            val ghi: String
-        )
-
         @JvmStatic
         fun main(args: Array<String>) {
-            val xmlFormat = XMLFormat()
+            val format = XMLFormat
             val xml = XMLElement("root", children = mutableListOf(
                 XMLElement("abc"),
                 XMLElement("def", attributes = mutableMapOf("attribute1" to "123", "attribute2" to "4\"5\"6")),
@@ -313,15 +293,11 @@ class XMLFormat : StringDataFormat<XMLElement> {
                     XMLElement("ghi1")
                 )),
             ))
-            println(xmlFormat.write(xml))
-            val codec = Codec.unboundedMap(Codec.reflect(Test::class.java))
-            println(xmlFormat.write(codec, mapOf(
-                "first" to Test(123, 456.789f, "10_11_12 <&>"),
-                "second" to Test(1, 2f, "3"),
-            )))
+            println(format.write(xml))
             println()
-            val parsed = xmlFormat.read("<abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
+            val parsed = format.read("<abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
             println(parsed)
+            println(format.write(parsed))
         }
     }
 }

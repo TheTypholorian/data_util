@@ -1,7 +1,9 @@
 package net.typho.data_util
 
 import net.typho.data_util.SingleValueInput.Companion.readVarInt
+import net.typho.data_util.impl.xml.XMLElement
 import java.io.DataInput
+import java.nio.file.Files.size
 import java.util.function.Function
 
 interface SequentialInput {
@@ -74,28 +76,16 @@ interface SequentialInput {
         @JvmOverloads
         @JvmStatic
         fun fromData(input: DataInput, size: Int = input.readVarInt()): SequentialInput = object : SequentialInput {
-            var index = 0
-            override val left: Int
-                get() = size - index
+            override var left: Int = size
 
             override fun readNextEntry(): SingleValueInput {
                 if (left == 0) {
-                    throw DataReadException("Read too many entries from list of size ${size}")
+                    throw DataReadException("Read too many entries from list of size $size")
                 }
 
-                index--
+                left--
 
                 return SingleValueInput.fromData(input)
-            }
-        }
-
-        @JvmStatic
-        fun fromXML(): SequentialInput = object : SequentialInput {
-            override val left: Int
-                get() = TODO("Not yet implemented")
-
-            override fun readNextEntry(): SingleValueInput {
-                TODO("Not yet implemented")
             }
         }
     }

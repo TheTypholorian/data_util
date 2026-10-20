@@ -33,6 +33,8 @@ data class XMLElement(
         }
     }
 
+    override fun boxAsElement() = this
+
     override fun toString() = buildString {
         append("XMLElement(name=").append(name)
 

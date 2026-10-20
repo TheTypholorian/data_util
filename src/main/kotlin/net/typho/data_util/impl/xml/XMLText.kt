@@ -7,4 +7,8 @@ data class XMLText(
     override fun toXMLString() = XMLFormat.writeEntities(text)
 
     override fun toString() = "XMLText($text)"
+
+    override fun boxAsElement(): XMLElement {
+        return XMLElement("text", children = mutableListOf(this))
+    }
 }

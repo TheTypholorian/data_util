@@ -335,59 +335,5 @@ interface SingleValueInput {
                 }
             }
         }
-
-        @JvmStatic
-        fun fromXML(xml: XMLElement): SingleValueInput = object : SingleValueInput {
-            override fun readBoolean() = readString().trim().toBoolean()
-
-            override fun readByte() = readString().trim().toByte()
-
-            override fun readShort() = readString().trim().toShort()
-
-            override fun readInt() = readString().trim().toInt()
-
-            override fun readLong() = readString().trim().toLong()
-
-            override fun readFloat() = readString().trim().toFloat()
-
-            override fun readDouble() = readString().trim().toDouble()
-
-            override fun readString(): String {
-                return when (xml.children.size) {
-                    0 -> ""
-                    1 -> (xml.children.first() as? XMLText)?.text ?: throw DataReadException("Expected string, got ${xml.children.first()}")
-                    else -> throw DataReadException("Expected single string, got ${xml.children}")
-                }
-            }
-
-            override fun <E : Enum<E>> readEnum(cls: Class<E>, caseSensitive: Boolean): E {
-                val name = readString()
-                return cls.enumConstants.firstOrNull { it.name.equals(name, !caseSensitive) } ?: throw EnumConstantNotPresentException(cls, name)
-            }
-
-            override fun readList(): SequentialInput {
-                return SequentialInput.fromXML()
-            }
-
-            override fun readDynamicMap(): Iterator<Pair<String, SingleValueInput>> {
-                TODO("Not yet implemented")
-            }
-
-            override fun readStaticMap(keys: List<String>): SequentialInput {
-                TODO("Not yet implemented")
-            }
-
-            override fun readVersion(key: String): SingleValueInput? {
-                TODO("Not yet implemented")
-            }
-
-            override fun <T> readEither(options: List<DataReader<T>>): T {
-                TODO("Not yet implemented")
-            }
-
-            override fun <T> readOptional(ifPresent: DataReader<T>): T? {
-                TODO("Not yet implemented")
-            }
-        }
     }
 }

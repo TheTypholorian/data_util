@@ -1,8 +1,8 @@
 package net.typho.data_util.impl
 
 /*
-class TomlFormat(
-) : StringDataFormat<Map<String, Any?>> {
+open class TomlFormat(
+) : StringDataFormat<Map<String, Any?>>, TypedDataFormat<String, Map<String, Any?>> {
     @Suppress("UNCHECKED_CAST")
     override fun createInput(parsed: Map<String, Any?>): SequentialInput {
         return SequentialInput.fromMap(parsed)
@@ -117,5 +117,7 @@ class TomlFormat(
     override fun write(data: Map<String, Any?>): String {
         TODO("Not yet implemented")
     }
+
+    companion object Default : TomlFormat()
 }
  */
