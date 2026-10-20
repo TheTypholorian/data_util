@@ -4,7 +4,7 @@ data class XMLText(
     @JvmField
     var text: String
 ) : XMLNode {
-    override fun toXMLString() = XMLFormat.escape(text)
+    override fun toXMLString() = XMLFormat.writeEntities(text)
 
     override fun toString() = "XMLText($text)"
 }

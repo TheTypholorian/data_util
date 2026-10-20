@@ -16,7 +16,7 @@ data class XMLElement(
             append(' ')
             append(key)
             append("=\"")
-            append(XMLFormat.escape(value))
+            append(XMLFormat.writeEntities(value))
             append('"')
         }
 

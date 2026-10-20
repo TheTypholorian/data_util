@@ -82,28 +82,16 @@ class XMLFormat : StringDataFormat<XMLElement> {
         }
 
         fun readText(end: Predicate<Char>): String {
-            return buildString {
+            return readEntities(buildString {
                 while (true) {
                     val char = input[charIndex++]
 
                     when {
                         end.test(char) -> break
-                        char == '&' -> {
-                            val semicolon = input.indexOf(';', startIndex = charIndex)
-                            when (val entity = input.substring(charIndex, semicolon)) {
-                                "amp" -> append('&')
-                                "lt" -> append('<')
-                                "gt" -> append('>')
-                                "quot" -> append('"')
-                                "apos" -> append('\'')
-                                else -> throw DataReadException("Unrecognized XML entity $entity") // TODO custom entities
-                            }
-                            charIndex = semicolon + 1
-                        }
                         else -> append(char)
                     }
                 }
-            }
+            }) // TODO custom entities
         }
 
         fun readQuoted(): String {
@@ -204,7 +192,7 @@ class XMLFormat : StringDataFormat<XMLElement> {
 
                     if (char == '<') {
                         if (text.isNotEmpty()) {
-                            element.children.add(XMLText(text.toString()))
+                            element.children.add(XMLText(readEntities(text.toString())))
                             text.clear()
                         }
 
@@ -251,12 +239,58 @@ class XMLFormat : StringDataFormat<XMLElement> {
     }
 
     companion object {
+        @JvmField
+        val defaultEntities = mapOf(
+            "amp" to "&",
+            "lt" to "<",
+            "gt" to ">",
+            "quot" to "\"",
+            "apos" to "'"
+        )
+
         @JvmStatic
-        fun escape(text: String) = text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&apos;")
+        fun readEntities(text: String, entities: Map<String, String> = defaultEntities): String {
+            return buildString {
+                var index = 0
+
+                while (index < text.length) {
+                    val char = text[index]
+
+                    if (char == '&') {
+                        val endIndex = text.indexOf(';', startIndex = index)
+                        val key = text.substring(index + 1, endIndex)
+                        append(entities[key] ?: throw DataReadException("Undefined entity &$key;"))
+                        index = endIndex + 1
+                    } else {
+                        append(char)
+                    }
+
+                    index++
+                }
+            }
+        }
+
+        @JvmStatic
+        fun writeEntities(text: String, entities: Map<String, String> = defaultEntities): String {
+            return buildString {
+                var index = 0
+
+                while (index < text.length) {
+                    val char = text[index]
+
+                    val entity = entities.filter { (key, value) -> text.startsWith(value, startIndex = index) }
+                        .maxByOrNull { (key, value) -> value.length }
+
+                    if (entity == null) {
+                        append(char)
+                        index++
+                    } else {
+                        append("&${entity.key};")
+                        index += entity.value.length
+                    }
+                }
+            }
+        }
 
         data class Test(
             @JvmField
@@ -282,11 +316,11 @@ class XMLFormat : StringDataFormat<XMLElement> {
             println(xmlFormat.write(xml))
             val codec = Codec.unboundedMap(Codec.reflect(Test::class.java))
             println(xmlFormat.write(codec, mapOf(
-                "first" to Test(123, 456.789f, "10_11_12"),
+                "first" to Test(123, 456.789f, "10_11_12 <&>"),
                 "second" to Test(1, 2f, "3"),
             )))
             println()
-            val parsed = xmlFormat.read("<abc attribute1='123' attribute2='456'>contents<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
+            val parsed = xmlFormat.read("<abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
             println(parsed)
         }
     }
