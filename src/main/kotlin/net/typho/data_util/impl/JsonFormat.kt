@@ -5,7 +5,6 @@ import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.SingleValueInput
 import net.typho.data_util.SingleValueOutput
-import net.typho.data_util.StringDataFormat
 import net.typho.data_util.TypedDataFormat
 import java.util.function.Consumer
 
@@ -14,7 +13,7 @@ open class JsonFormat(
     val allowComments: Boolean = false,
     @JvmField
     val prettyPrint: Boolean = false
-) : StringDataFormat<Any>, TypedDataFormat<String, Any> {
+) : TypedDataFormat<String, Any> {
     override fun createInput(parsed: Any): SingleValueInput {
         return SingleValueInput.fromObject(parsed)
     }

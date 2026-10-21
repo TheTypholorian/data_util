@@ -2,13 +2,12 @@ package net.typho.data_util.impl
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
-import net.typho.data_util.StringDataFormat
 import kotlin.collections.set
 
 open class PropertiesFormat(
     @JvmField
     val delimiterToWrite: Char = '='
-) : StringDataFormat<Map<String, String>> {
+) : DataFormat<String, Map<String, String>> {
     init {
         if (delimiterToWrite != '=' && delimiterToWrite != ':') {
             throw IllegalArgumentException("Properties file delimiter must be '=' or ';', not '$delimiterToWrite'")

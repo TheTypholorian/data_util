@@ -1,63 +1,48 @@
 package net.typho.data_util.impl.xml
 
+import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
-import net.typho.data_util.StringDataFormat
-import net.typho.data_util.impl.xml.XMLFormat.Default.readEntities
+import net.typho.data_util.ParsingIterator
 import java.util.function.Predicate
 
 open class XMLFormat(
     @JvmField
     val readComments: Boolean = false
-) : StringDataFormat<XMLDocument> {
+) : DataFormat<String, XMLDocument> {
     override fun read(input: String): XMLDocument {
-        val input = input.trim()
-        var charIndex = 0
+        val input = ParsingIterator(input, true)
 
-        fun isStartChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
+        fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
 
-        fun isNextChar(char: Char) = isStartChar(char) || char in '0'..'9' || char == '-' || char == '.'
+        fun isStartChar(char: Char, metadataAllowed: Boolean) = isValidChar(char) || (char == '?' && metadataAllowed)
 
-        fun skipWhitespaces() {
-            while (true) {
-                val char = input[charIndex]
+        fun isNextChar(char: Char) = isValidChar(char) || char in '0'..'9' || char == '-' || char == '.'
 
-                if (!char.isWhitespace()) {
-                    break
-                }
-
-                charIndex++
-            }
-        }
-
-        fun readWord(): String {
-            skipWhitespaces()
-            return buildString {
-                var i = 0
-
-                while (true) {
-                    val char = input[charIndex]
-
-                    if (i == 0) {
-                        if (!isStartChar(char)) {
-                            throw DataReadException("Invalid XML element name (starts with illegal character $char)")
-                        }
-                    } else {
-                        if (!isNextChar(char)) {
-                            break
-                        }
+        fun readWord(metadataAllowed: Boolean): String {
+            input.skipUntil { !it.isWhitespace() }
+            return input.takeUntil(
+                { char ->
+                    if (!isStartChar(char, metadataAllowed)) {
+                        input.error("Invalid XML element name (starts with illegal character $char)")
                     }
 
-                    append(char)
-                    charIndex++
+                    false
+                },
+                { char ->
+                    if (!isNextChar(char)) {
+                        input.error("Invalid XML element name (starts with illegal character $char)")
+                    }
 
-                    i++
+                    char.isWhitespace()
                 }
-            }
+            )
         }
 
         fun skipWhitespacesUntil(vararg expected: Char, error: (Char) -> Nothing): Char {
+
+
             while (true) {
-                val char = input[charIndex++]
+                val char = input.next()
 
                 when {
                     char.isWhitespace() -> continue
@@ -114,17 +99,18 @@ open class XMLFormat(
             val attributes: MutableMap<String, String>
         )
 
-        fun readTag(): Tag {
+        fun readTag(metadataAllowed: Boolean): Tag {
             var closure = 0
 
-            val firstChar = peekNextNonWhitespaceChar()
+            val first = input.fork()
+            first.skipUntil { !it.isWhitespace() }
 
-            if (firstChar.second == '/') {
+            if (first.current() == '/') {
                 closure = 1
                 charIndex = firstChar.first + 1
-            } else if (input.startsWith("!--", startIndex = firstChar.first)) {
+            } else if (input.text.startsWith("!--", startIndex = firstChar.first)) {
                 val commentStart = firstChar.first + "!--".length
-                val end = input.indexOf("--", startIndex = commentStart)
+                val end = input.text.indexOf("--", startIndex = commentStart)
 
                 if (input[end + 2] != '>') {
                     throw DataReadException("Cannot have dangling '--' in a comment, must signify end of comment")
@@ -132,11 +118,11 @@ open class XMLFormat(
 
                 charIndex = end + "-->".length
 
-                return Tag(input.substring(commentStart, end), true, 0, mutableMapOf())
+                return Tag(input.text.substring(commentStart, end), true, 0, mutableMapOf())
             }
 
             // read name
-            val name = readWord()
+            val name = readWord(metadataAllowed)
             val attributes = mutableMapOf<String, String>()
 
             // read attributes
@@ -158,7 +144,7 @@ open class XMLFormat(
                     char == '>' -> break
                     else -> { // read attribute
                         charIndex--
-                        val key = readWord()
+                        val key = readWord(false)
                         skipWhitespacesUntil('=') { throw DataReadException("Invalid XML character after attribute name: $it") }
                         val value = readQuoted()
 
@@ -196,7 +182,7 @@ open class XMLFormat(
                             text.clear()
                         }
 
-                        val tag = readTag()
+                        val tag = readTag(false)
 
                         if (!tag.isComment && tag.textData == start.textData && tag.closure == 1) {
                             if (tag.attributes.isNotEmpty()) {
@@ -221,7 +207,7 @@ open class XMLFormat(
 
         while (true) {
             skipWhitespacesUntil('<') { throw DataReadException("Illegal starting XML character: $it") }
-            val tag = readTag()
+            val tag = readTag(true)
 
             if (tag.isComment) {
                 continue
