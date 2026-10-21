@@ -2,45 +2,69 @@ package net.typho.data_util
 
 import java.util.function.Predicate
 
-class ParsingIterator @JvmOverloads constructor(
+open class ParsingIterator @JvmOverloads constructor(
     @JvmField
     val text: String,
     @JvmField
     val range: IntRange = text.indices,
     index: Int = range.first
 ) : ListIterator<Char> {
+    @JvmField
     var index: Int = index
-        private set
 
     constructor(text: String, trim: Boolean) : this(
         text,
-        IntRange(
-            text.takeWhile { it.isWhitespace() }.length,
-            text.length - text.takeLastWhile { it.isWhitespace() }.length - 1
-        )
+        if (trim) {
+            IntRange(
+                text.takeWhile { it.isWhitespace() }.length,
+                text.length - text.takeLastWhile { it.isWhitespace() }.length - 1
+            )
+        } else {
+            text.indices
+        }
     )
 
-    override fun hasNext() = index <= range.last
+    override fun hasNext() = index in range
 
-    override fun hasPrevious() = index >= range.first
+    override fun hasPrevious() = index in range
 
     override fun next(): Char {
         if (!hasNext()) {
-            throw NoSuchElementException("Read too many characters from parsing iterator")
+            throw NoSuchElementException()
         }
 
         return text[index++]
     }
 
+    fun skip(amount: Int) {
+        if ((index + amount) !in range) {
+            throw NoSuchElementException()
+        }
+
+        index += amount
+    }
+
     fun current(): Char {
+        if (index !in range) {
+            throw NoSuchElementException()
+        }
+
         return text[index]
     }
+
+    fun currentMatches(text: String): Boolean {
+        return (index + text.length) in range && this.text.startsWith(text, startIndex = index)
+    }
+
+    fun indexOfNext(char: Char) = text.indexOf(char, startIndex = index)
+
+    fun indexOfNext(text: String) = this.text.indexOf(text, startIndex = index)
 
     override fun nextIndex() = index
 
     override fun previous(): Char {
         if (!hasPrevious()) {
-            throw NoSuchElementException("Read too many characters from parsing iterator")
+            throw NoSuchElementException()
         }
 
         return text[index--]
@@ -92,9 +116,23 @@ class ParsingIterator @JvmOverloads constructor(
     }
 
     @JvmOverloads
-    fun fork(range: IntRange = this.range, index: Int = this.index) = ParsingIterator(text, range, index)
+    fun fork(range: IntRange = this.range, index: Int = this.index) = Child(text, range, index)
 
     fun error(message: String): Nothing {
-        throw DataReadException(message, text, index)
+        throw DataReadException(message, text, index).also {
+            it.stackTrace = it.stackTrace.copyOfRange(1, it.stackTrace.size)
+        }
+    }
+
+    open inner class Child @JvmOverloads constructor(
+        text: String,
+        range: IntRange = text.indices,
+        index: Int = range.first
+    ) : ParsingIterator(text, range, index) {
+        fun merge(): ParsingIterator {
+            val parent = this@ParsingIterator
+            parent.index = index
+            return parent
+        }
     }
 }

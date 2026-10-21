@@ -21,7 +21,7 @@ open class XMLElement(
         }
     }
 
-    fun contentsAsString() = children.joinToString { it.toXMLString() }
+    fun contentsAsString() = children.joinToString(separator = "") { it.toXMLString() }
 
     override fun toXMLString() = buildString {
         append('<')

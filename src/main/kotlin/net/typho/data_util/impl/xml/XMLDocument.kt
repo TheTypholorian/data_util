@@ -7,4 +7,8 @@ open class XMLDocument(
     var metadata: MutableList<XMLStubElement> = mutableListOf()
 ) {
     fun toXMLString() = (metadata + root).joinToString(separator = "") { it.toXMLString() }
+
+    override fun toString(): String {
+        return "XMLDocument(metadata=${metadata} root=$root)"
+    }
 }
