@@ -2,14 +2,12 @@ package net.typho.data_util.impl.xml
 
 import net.typho.data_util.DataReadException
 
-data class XMLElement(
-    @JvmField
-    var name: String,
-    @JvmField
-    var attributes: MutableMap<String, String> = mutableMapOf(),
+open class XMLElement(
+    name: String,
+    attributes: MutableMap<String, String> = mutableMapOf(),
     @JvmField
     var children: MutableList<XMLNode> = mutableListOf()
-) : XMLNode {
+) : XMLStubElement(name, attributes) {
     fun getChildren(name: String): List<XMLElement> {
         return children.filterIsInstance<XMLElement>().filter { it.name == name }
     }
@@ -38,7 +36,11 @@ data class XMLElement(
         }
 
         if (children.isEmpty()) {
-            append("/>")
+            if (name.startsWith('?')) {
+                append("?>")
+            } else {
+                append("/>")
+            }
         } else {
             append('>')
             append(contentsAsString())

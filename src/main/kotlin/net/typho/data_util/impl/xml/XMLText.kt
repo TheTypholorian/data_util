@@ -1,6 +1,6 @@
 package net.typho.data_util.impl.xml
 
-data class XMLText(
+open class XMLText(
     @JvmField
     var text: String
 ) : XMLNode {

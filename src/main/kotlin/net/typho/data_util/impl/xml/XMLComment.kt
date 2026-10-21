@@ -1,6 +1,6 @@
 package net.typho.data_util.impl.xml
 
-data class XMLComment(
+open class XMLComment(
     @JvmField
     var text: String
 ) : XMLNode {

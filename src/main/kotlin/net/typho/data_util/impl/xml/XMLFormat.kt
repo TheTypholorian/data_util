@@ -2,13 +2,14 @@ package net.typho.data_util.impl.xml
 
 import net.typho.data_util.DataReadException
 import net.typho.data_util.StringDataFormat
+import net.typho.data_util.impl.xml.XMLFormat.Default.readEntities
 import java.util.function.Predicate
 
 open class XMLFormat(
     @JvmField
     val readComments: Boolean = false
-) : StringDataFormat<XMLElement> {
-    override fun read(input: String): XMLElement {
+) : StringDataFormat<XMLDocument> {
+    override fun read(input: String): XMLDocument {
         val input = input.trim()
         var charIndex = 0
 
@@ -101,7 +102,7 @@ open class XMLFormat(
         data class Tag(
             // name for elements, content of comments
             @JvmField
-            val text: String,
+            val textData: String,
             // TODO separate handling for comments
             @JvmField
             val isComment: Boolean,
@@ -110,7 +111,7 @@ open class XMLFormat(
             @JvmField
             val closure: Int,
             @JvmField
-            val attributes: Map<String, String>
+            val attributes: MutableMap<String, String>
         )
 
         fun readTag(): Tag {
@@ -131,7 +132,7 @@ open class XMLFormat(
 
                 charIndex = end + "-->".length
 
-                return Tag(input.substring(commentStart, end), true, 0, mapOf())
+                return Tag(input.substring(commentStart, end), true, 0, mutableMapOf())
             }
 
             // read name
@@ -144,11 +145,11 @@ open class XMLFormat(
 
                 when {
                     char.isWhitespace() -> continue
-                    char == '/' -> {
-                        skipWhitespacesUntil('>') { throw DataReadException("Invalid XML character after slash in element header: $it") }
+                    (char == '/') || char == '?' && name.startsWith('?') -> {
+                        skipWhitespacesUntil('>') { throw DataReadException("Invalid XML character after ending character in element header: $it") }
 
                         if (closure == 1) {
-                            throw DataReadException("XML tag both closes its opening tag and itself (ex. </name/>), you must pick one or the other.")
+                            throw DataReadException("XML tag both closes its opening tag and itself (ex. </name/>), must be one or the other.")
                         }
 
                         closure = 2
@@ -171,16 +172,16 @@ open class XMLFormat(
             return Tag(name, false, closure, attributes)
         }
 
-        fun readNode(start: Tag = readTag()): XMLNode? {
+        fun readNode(start: Tag): XMLNode? {
             if (start.isComment) {
-                return if (readComments) XMLComment(start.text) else null
+                return if (readComments) XMLComment(start.textData) else null
             }
 
             if (start.closure == 1) {
                 throw DataReadException("XML tag closes a nonexistent opening tag")
             }
 
-            val element = XMLElement(start.text, start.attributes.toMutableMap())
+            val element = XMLElement(start.textData, start.attributes)
 
             // read tag contents
             if (start.closure == 0) {
@@ -197,7 +198,7 @@ open class XMLFormat(
 
                         val tag = readTag()
 
-                        if (!tag.isComment && tag.text == start.text && tag.closure == 1) {
+                        if (!tag.isComment && tag.textData == start.textData && tag.closure == 1) {
                             if (tag.attributes.isNotEmpty()) {
                                 throw DataReadException("XML end tag contains attributes, only opening tags can have attributes.")
                             }
@@ -215,17 +216,35 @@ open class XMLFormat(
             return element
         }
 
-        skipWhitespacesUntil('<') { throw DataReadException("Illegal starting XML character: $it") }
-        val element = readNode()// ?: throw DataReadException("XML does not have a root element")
+        val metadata = mutableListOf<XMLStubElement>()
+        lateinit var root: XMLElement
+
+        while (true) {
+            skipWhitespacesUntil('<') { throw DataReadException("Illegal starting XML character: $it") }
+            val tag = readTag()
+
+            if (tag.isComment) {
+                continue
+            }
+
+            if (tag.textData.startsWith('?')) {
+                metadata.add(XMLStubElement(tag.textData, tag.attributes))
+            } else {
+                root = (readNode(tag) as? XMLElement) ?: throw DataReadException("XML root value is not an element")
+                break
+            }
+        }
 
         if (charIndex != input.length) {
             throw DataReadException("Trailing data after root XML element")
         }
 
-        return (element as? XMLElement) ?: throw DataReadException("XML root value is not an element")
+        return XMLDocument(root, metadata)
     }
 
-    override fun write(data: XMLElement) = data.toXMLString()
+    override fun write(data: XMLDocument) = data.toXMLString()
+
+    fun write(element: XMLElement) = element.toXMLString()
 
     companion object Default : XMLFormat() {
         @JvmField
@@ -295,7 +314,7 @@ open class XMLFormat(
             ))
             println(format.write(xml))
             println()
-            val parsed = format.read("<abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
+            val parsed = format.read("<?xml version=\"1.0\" ?><abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
             println(parsed)
             println(format.write(parsed))
         }
