@@ -3,7 +3,9 @@ package net.typho.data_util.impl.xml
 import java.util.function.Consumer
 
 sealed interface XMLNode {
-    fun toXMLString(): String
+    fun toXMLString(prettyPrint: Boolean = false): String
+
+    fun isBlank(): Boolean
 
     fun asElement() = this as XMLElement
 

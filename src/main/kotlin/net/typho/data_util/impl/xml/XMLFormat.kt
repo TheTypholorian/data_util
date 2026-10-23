@@ -5,7 +5,9 @@ import net.typho.data_util.ParsingIterator
 
 open class XMLFormat(
     @JvmField
-    val readComments: Boolean = false
+    val readComments: Boolean = false,
+    @JvmField
+    val prettyPrint: Boolean = false
 ) : DataFormat<String, XMLDocument> {
     override fun read(input: String): XMLDocument {
         val input = ParsingIterator(input, true)
@@ -62,7 +64,7 @@ open class XMLFormat(
             val opening = input.fork()
             opening.skipUntil { !it.isWhitespace() }
 
-            if (opening.current() == '/') {
+            if (opening.peek() == '/') {
                 closure = 1
                 opening.next()
                 opening.merge()
@@ -90,7 +92,7 @@ open class XMLFormat(
 
             // read attributes
             while (true) {
-                val char = input.current()
+                val char = input.peek()
 
                 when {
                     char.isWhitespace() -> {
@@ -208,9 +210,9 @@ open class XMLFormat(
         return XMLDocument(root, metadata)
     }
 
-    override fun write(data: XMLDocument) = data.toXMLString()
+    override fun write(data: XMLDocument) = data.toXMLString(prettyPrint)
 
-    fun write(element: XMLElement) = element.toXMLString()
+    fun write(element: XMLElement) = element.toXMLString(prettyPrint)
 
     companion object Default : XMLFormat() {
         @JvmField

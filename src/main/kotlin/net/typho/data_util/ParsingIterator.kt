@@ -1,6 +1,7 @@
 package net.typho.data_util
 
 import java.util.function.Predicate
+import kotlin.text.Typography.section
 
 open class ParsingIterator @JvmOverloads constructor(
     @JvmField
@@ -44,7 +45,7 @@ open class ParsingIterator @JvmOverloads constructor(
         index += amount
     }
 
-    fun current(): Char {
+    fun peek(): Char {
         if (index !in range) {
             throw NoSuchElementException()
         }
@@ -81,7 +82,7 @@ open class ParsingIterator @JvmOverloads constructor(
             var predicate = predicate
 
             while (index in range) {
-                val char = current()
+                val char = peek()
 
                 if (predicate.test(char)) {
                     break
@@ -101,7 +102,7 @@ open class ParsingIterator @JvmOverloads constructor(
         var predicate = predicate
 
         while (index in range) {
-            val char = current()
+            val char = peek()
 
             if (predicate.test(char)) {
                 break
@@ -121,6 +122,15 @@ open class ParsingIterator @JvmOverloads constructor(
     fun error(message: String): Nothing {
         throw DataReadException(message, text, index).also {
             it.stackTrace = it.stackTrace.copyOfRange(1, it.stackTrace.size)
+        }
+    }
+
+    override fun toString(): String {
+        if (index in range) {
+            val section = text.substring((index - 3).coerceAtLeast(range.first), index) + "[" + text[index] + "]" + text.substring(index + 1, (index + 4).coerceAtMost(range.last))
+            return "ParsingIterator(index=$index range=$range position=\"${section.replace("\n", "\\n")}\""
+        } else {
+            return "ParsingIterator(index=$index range=$range"
         }
     }
 

@@ -6,7 +6,7 @@ open class XMLStubElement(
     @JvmField
     var attributes: MutableMap<String, String> = mutableMapOf(),
 ) : XMLNode {
-    override fun toXMLString() = buildString {
+    override fun toXMLString(prettyPrint: Boolean) = buildString {
         append('<')
         append(name)
 
@@ -24,6 +24,8 @@ open class XMLStubElement(
             append("/>")
         }
     }
+
+    override fun isBlank() = false
 
     override fun toString() = buildString {
         append("XMLStubElement(name=").append(name)

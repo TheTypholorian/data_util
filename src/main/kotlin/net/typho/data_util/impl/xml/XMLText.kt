@@ -4,7 +4,9 @@ open class XMLText(
     @JvmField
     var text: String
 ) : XMLNode {
-    override fun toXMLString() = XMLFormat.writeEntities(text)
+    override fun toXMLString(prettyPrint: Boolean) = XMLFormat.writeEntities(text)
+
+    override fun isBlank() = text.isBlank()
 
     override fun toString() = "XMLText($text)"
 }

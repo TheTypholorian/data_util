@@ -6,7 +6,7 @@ open class XMLDocument(
     @JvmField
     var metadata: MutableList<XMLStubElement> = mutableListOf()
 ) {
-    fun toXMLString() = (metadata + root).joinToString(separator = "") { it.toXMLString() }
+    fun toXMLString(prettyPrint: Boolean = false) = (metadata + root).joinToString(separator = "") { it.toXMLString(prettyPrint) }
 
     override fun toString(): String {
         return "XMLDocument(metadata=${metadata} root=$root)"

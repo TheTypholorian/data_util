@@ -21,9 +21,9 @@ open class XMLElement(
         }
     }
 
-    fun contentsAsString() = children.joinToString(separator = "") { it.toXMLString() }
+    fun contentsAsString(prettyPrint: Boolean = false) = children.filter { !it.isBlank() }.joinToString(separator = if (prettyPrint) "\n" else "") { it.toXMLString(prettyPrint) }
 
-    override fun toXMLString() = buildString {
+    override fun toXMLString(prettyPrint: Boolean) = buildString {
         append('<')
         append(name)
 
@@ -43,7 +43,15 @@ open class XMLElement(
             }
         } else {
             append('>')
-            append(contentsAsString())
+
+            if (children.size == 1) {
+                append(contentsAsString(prettyPrint))
+            } else {
+                append('\n')
+                append(contentsAsString(prettyPrint).prependIndent("\t"))
+                append('\n')
+            }
+
             append("</")
             append(name)
             append('>')
