@@ -6,7 +6,5 @@ open class XMLComment(
 ) : XMLNode {
     override fun toXMLString(prettyPrint: Boolean) = "<!--$text-->"
 
-    override fun isBlank() = text.isBlank()
-
     override fun toString() = "XMLComment($text)"
 }

@@ -6,7 +6,5 @@ open class XMLText(
 ) : XMLNode {
     override fun toXMLString(prettyPrint: Boolean) = XMLFormat.writeEntities(text)
 
-    override fun isBlank() = text.isBlank()
-
     override fun toString() = "XMLText($text)"
 }

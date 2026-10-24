@@ -5,8 +5,6 @@ import java.util.function.Consumer
 sealed interface XMLNode {
     fun toXMLString(prettyPrint: Boolean = false): String
 
-    fun isBlank(): Boolean
-
     fun asElement() = this as XMLElement
 
     fun asText() = this as XMLText

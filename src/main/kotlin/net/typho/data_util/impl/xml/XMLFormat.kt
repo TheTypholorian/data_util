@@ -15,27 +15,30 @@ open class XMLFormat(
         fun readWord(metadataAllowed: Boolean): String {
             fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
 
-            input.skipUntil { !it.isWhitespace() }
+            input.skipUntil { index, char -> !char.isWhitespace() }
             return input.takeUntil(
-                { char ->
-                    if (!(isValidChar(char) || (char == '?' && metadataAllowed))) {
-                        input.error("Invalid XML element name (starts with illegal character $char)")
-                    }
+                { index, char ->
+                    if (index == 0) {
+                        if (!(isValidChar(char) || (char == '?' && metadataAllowed))) {
+                            input.error("Invalid XML element name (starts with illegal character $char)")
+                        }
 
-                    false
-                },
-                { char -> !(isValidChar(char) || char in '0'..'9' || char == '-' || char == '.') }
-            )
+                        false
+                    } else {
+                        !(isValidChar(char) || char in '0'..'9' || char == '-' || char == '.')
+                    }
+                }
+            ) ?: input.error("Unterminated XML word")
         }
 
         fun skipOnlyWhitespacesUntil(vararg expected: Char, error: (Char) -> Nothing): Char {
-            input.skipUntil {
-                if (it in expected) {
+            input.skipUntil { index, char ->
+                if (char in expected) {
                     return@skipUntil true
                 }
 
-                if (!it.isWhitespace()) {
-                    error(it)
+                if (!char.isWhitespace()) {
+                    error(char)
                 }
 
                 return@skipUntil false
@@ -62,7 +65,7 @@ open class XMLFormat(
             var closure = 0
 
             val opening = input.fork()
-            opening.skipUntil { !it.isWhitespace() }
+            opening.skipUntil { index, char -> !char.isWhitespace() }
 
             if (opening.peek() == '/') {
                 closure = 1

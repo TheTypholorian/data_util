@@ -25,8 +25,6 @@ open class XMLStubElement(
         }
     }
 
-    override fun isBlank() = false
-
     override fun toString() = buildString {
         append("XMLStubElement(name=").append(name)
 

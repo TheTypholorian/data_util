@@ -29,21 +29,31 @@ object MarkdownUtil {
             val expected = char.toString().repeat(size)
 
             repeat(size - 1) {
+                if (!fork.hasNext()) {
+                    return false
+                }
+
                 if (fork.next() != char) {
                     return false
                 }
             }
 
-            val text = fork.takeUntil {
-                when (it) {
+            val text = fork.takeUntil { index, char ->
+                when (char) {
                     '\n' -> return@takeUntil false
                     char -> fork.currentMatches(expected)
                     else -> false
                 }
-            }
+            } ?: return false
 
             repeat(size) {
-                fork.next()
+                if (!fork.hasNext()) {
+                    return false
+                }
+
+                if (fork.next() != char) {
+                    return false
+                }
             }
 
             fork.merge()
@@ -68,11 +78,34 @@ object MarkdownUtil {
                 }
                 '#' -> {
                     flush()
-                    val size = input.skipUntil { it != '#' } + 1
-                    input.skipUntil { !it.isWhitespace() }
-                    val header = input.takeUntil { it == '\n' }
-                    input.next() // skip newline
+                    val size = input.skipUntilOrEnd { index, char -> char != '#' } + 1
+                    input.skipUntil { index, char -> !char.isWhitespace() }
+                    val header = input.takeUntilOrEnd { index, char -> char == '\n' }
+
+                    if (input.peekOrNull() == '\n') {
+                        input.next() // skip newline
+                    }
+
                     result.add(XMLElement(name = "h$size", children = markdownToHtml(header).toMutableList()))
+                    continue
+                }
+                '>' -> {
+                    flush()
+                    val size = input.skipUntilOrEnd { index, char -> char != '>' }
+                    input.skipUntil { index, char -> !char.isWhitespace() }
+                    val blockquote = input.takeUntilOrEnd { index, char -> char == '\n' }
+
+                    if (input.peekOrNull() == '\n') {
+                        input.next() // skip newline
+                    }
+
+                    var element = XMLElement(name = "blockquote", children = markdownToHtml(blockquote).toMutableList())
+
+                    repeat(size) {
+                        element = XMLElement(name = "blockquote", children = mutableListOf(element))
+                    }
+
+                    result.add(element)
                     continue
                 }
             }
@@ -80,7 +113,7 @@ object MarkdownUtil {
             if (char in ruleChars) {
                 val fork = input.fork()
 
-                if (fork.skipUntil { it != char } >= 2) {
+                if (fork.skipUntilOrEnd { index, char1 -> char1 != char } >= 2) {
                     flush()
                     fork.merge()
                     result.add(XMLElement("hr"))
@@ -98,6 +131,14 @@ object MarkdownUtil {
 
             if (char == '~') {
                 if (readEmphasis("strike", char, 2)) {
+                    continue
+                } else if (readEmphasis("sub", char, 1)) {
+                    continue
+                }
+            }
+
+            if (char == '^') {
+                if (readEmphasis("sup", char, 1)) {
                     continue
                 }
             }
@@ -292,12 +333,12 @@ object MarkdownUtil {
             - H~2~O
 
 
-            <!-- ### [\<ins>](https://github.com/markdown-it/markdown-it-ins) -->
+            ### [\<ins>](https://github.com/markdown-it/markdown-it-ins)
 
             ++Inserted text++
 
 
-            <!-- ### [\<mark>](https://github.com/markdown-it/markdown-it-mark) -->
+            ### [\<mark>](https://github.com/markdown-it/markdown-it-mark)
 
             ==Marked text==
 
@@ -344,7 +385,8 @@ object MarkdownUtil {
               ~ Definition 2b
         """.trimIndent()
         println("HTML:")
-        val html = markdownToHtml(XMLFormat.read("""
+        /*
+        XMLFormat.read("""
             <html lang="en">
             <head>
               <meta charset="utf-8" />
@@ -354,7 +396,27 @@ object MarkdownUtil {
             $markdown
             </body>
             </html>
-        """.trimIndent()).root).toXMLString(true)
+        """.trimIndent()).root
+         */
+        val html = XMLElement(
+            "html",
+            attributes = mutableMapOf("lang" to "en"),
+            children = mutableListOf(
+                XMLElement(
+                    "head",
+                    children = mutableListOf(
+                        XMLElement(
+                            "meta",
+                            attributes = mutableMapOf("charset" to "utf-8")
+                        )
+                    )
+                ),
+                XMLElement(
+                    "body",
+                    children = markdownToHtml(markdown).toMutableList()
+                )
+            )
+        ).toXMLString(true)
         println(html)
         File("test.html").writeText(html)
     }

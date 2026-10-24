@@ -21,7 +21,7 @@ open class XMLElement(
         }
     }
 
-    fun contentsAsString(prettyPrint: Boolean = false) = children.filter { !it.isBlank() }.joinToString(separator = if (prettyPrint) "\n" else "") { it.toXMLString(prettyPrint) }
+    fun contentsAsString(prettyPrint: Boolean = false) = children.joinToString(separator = if (prettyPrint) "\n" else "") { it.toXMLString(prettyPrint) }
 
     override fun toXMLString(prettyPrint: Boolean) = buildString {
         append('<')

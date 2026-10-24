@@ -1,5 +1,6 @@
 package net.typho.data_util
 
+import sun.text.normalizer.UTF16.append
 import java.util.function.Predicate
 import kotlin.text.Typography.section
 
@@ -53,6 +54,14 @@ open class ParsingIterator @JvmOverloads constructor(
         return text[index]
     }
 
+    fun peekOrNull(): Char? {
+        if (index !in range) {
+            return null
+        }
+
+        return text[index]
+    }
+
     fun currentMatches(text: String): Boolean {
         return (index + text.length) in range && this.text.startsWith(text, startIndex = index)
     }
@@ -75,42 +84,71 @@ open class ParsingIterator @JvmOverloads constructor(
 
     operator fun get(index: Int) = text[index]
 
-    fun takeUntil(predicate: Predicate<Char>) = takeUntil(predicate, predicate)
-
-    fun takeUntil(predicate: Predicate<Char>, afterFirst: Predicate<Char>): String {
-        return buildString {
-            var predicate = predicate
-
-            while (index in range) {
-                val char = peek()
-
-                if (predicate.test(char)) {
-                    break
-                }
-
-                append(char)
-                next()
-                predicate = afterFirst
-            }
-        }
-    }
-
-    fun skipUntil(predicate: Predicate<Char>) = skipUntil(predicate, predicate)
-
-    fun skipUntil(predicate: Predicate<Char>, afterFirst: Predicate<Char>): Int {
-        var skipped = 0
-        var predicate = predicate
+    fun takeUntil(predicate: (index: Int, char: Char) -> Boolean): String? {
+        val start = index
+        var i = 0
 
         while (index in range) {
             val char = peek()
 
-            if (predicate.test(char)) {
+            if (predicate(i++, char)) {
+                return text.substring(start, index)
+            }
+
+            next()
+        }
+
+        return null
+    }
+
+    fun takeUntilOrEnd(predicate: (index: Int, char: Char) -> Boolean): String {
+        val start = index
+        var i = 0
+
+        while (index in range) {
+            val char = peek()
+
+            if (predicate(i++, char)) {
+                break
+            }
+
+            next()
+        }
+
+        return text.substring(start, index)
+    }
+
+    fun skipUntil(predicate: (index: Int, char: Char) -> Boolean): Int? {
+        var skipped = 0
+        var i = 0
+
+        while (index in range) {
+            val char = peek()
+
+            if (predicate(i++, char)) {
+                return skipped
+            }
+
+            next()
+            skipped++
+        }
+
+        return null
+    }
+
+    fun skipUntilOrEnd(predicate: (index: Int, char: Char) -> Boolean): Int {
+        var skipped = 0
+        var i = 0
+
+        while (index in range) {
+            val char = peek()
+
+            if (predicate(i++, char)) {
                 break
             }
 
             next()
             skipped++
-            predicate = afterFirst
         }
 
         return skipped
@@ -119,7 +157,8 @@ open class ParsingIterator @JvmOverloads constructor(
     @JvmOverloads
     fun fork(range: IntRange = this.range, index: Int = this.index) = Child(text, range, index)
 
-    fun error(message: String): Nothing {
+    @JvmOverloads
+    fun error(message: String, index: Int = this.index): Nothing {
         throw DataReadException(message, text, index).also {
             it.stackTrace = it.stackTrace.copyOfRange(1, it.stackTrace.size)
         }
