@@ -39,6 +39,7 @@ interface VersionedCodec<V, T>: Codec<T> {
 
     override fun write(output: SingleValueOutput, value: T) {
         val version = versionGetter.apply(value)
+        versionCodec.write(output.writeVersion(versionKey), version)
         getCodec(version).write(output, value)
     }
 }

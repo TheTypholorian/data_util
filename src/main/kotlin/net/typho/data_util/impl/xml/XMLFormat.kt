@@ -16,19 +16,17 @@ open class XMLFormat(
             fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
 
             input.skipUntil { index, char -> !char.isWhitespace() }
-            return input.takeUntil(
-                { index, char ->
-                    if (index == 0) {
-                        if (!(isValidChar(char) || (char == '?' && metadataAllowed))) {
-                            input.error("Invalid XML element name (starts with illegal character $char)")
-                        }
-
-                        false
-                    } else {
-                        !(isValidChar(char) || char in '0'..'9' || char == '-' || char == '.')
+            return input.takeUntil { index, char ->
+                if (index == 0) {
+                    if (!(isValidChar(char) || (char == '?' && metadataAllowed))) {
+                        input.error("Invalid XML element name (starts with illegal character $char)")
                     }
+
+                    false
+                } else {
+                    !(isValidChar(char) || char in '0'..'9' || char == '-' || char == '.')
                 }
-            ) ?: input.error("Unterminated XML word")
+            } ?: input.error("Unterminated XML word")
         }
 
         fun skipOnlyWhitespacesUntil(vararg expected: Char, error: (Char) -> Nothing): Char {
