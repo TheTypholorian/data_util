@@ -3,7 +3,7 @@ package net.typho.data_util
 import net.typho.data_util.codec.Codec
 import java.util.function.Consumer
 
-interface TypedDataFormat<D, R> : DataFormat<D, R> {
+interface TypedDataFormat<D> : DataFormat<D> {
     fun <T> read(codec: Codec<T>, input: D): T {
         return codec.read(createInput(read(input)))
     }

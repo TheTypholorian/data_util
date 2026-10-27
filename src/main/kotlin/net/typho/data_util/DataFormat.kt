@@ -1,11 +1,12 @@
 package net.typho.data_util
 
-interface DataFormat<D, R> {
-    fun read(input: D): R
+interface DataFormat<V> {
+    fun read(input: SerializedData): DataResult<V>
 
-    fun write(data: R): D
+    fun write(data: V): SerializedData
 
     companion object {
+        // TODO modernize
         @JvmStatic
         fun readEscapeSequences(line: (() -> Int)?, text: String): String {
             var text = text
@@ -68,17 +69,6 @@ interface DataFormat<D, R> {
             }
 
             return text
-        }
-
-        @JvmStatic
-        fun trimQuotes(text: String): String {
-            return if (text.startsWith('"') && text.endsWith('"')) {
-                text.substring(1, text.length - 1)
-            } else if (text.startsWith('\'') && text.endsWith('\'')) {
-                text.substring(1, text.length - 1)
-            } else {
-                text
-            }
         }
     }
 }
