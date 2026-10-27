@@ -1,0 +1,15 @@
+<root type="map">
+    <abc type="int">123</abc>
+    <object type="map">
+        <exampleArray type="list">
+            <item type="int">1</item>
+            <item type="int">2</item>
+            <item type="int">3</item>
+            <item type="string">4</item>
+            <item type="list">
+                <item type="int">5</item>
+            </item>
+        </exampleArray>
+        <otherField type="string">test</otherField>
+    </object>
+</root>
