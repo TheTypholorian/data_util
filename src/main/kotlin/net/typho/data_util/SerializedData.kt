@@ -1,24 +1,19 @@
 package net.typho.data_util
 
 import java.nio.file.Path
-import kotlin.io.path.inputStream
-import kotlin.io.path.outputStream
-import kotlin.io.path.readBytes
-import kotlin.io.path.readText
-import kotlin.io.path.writeBytes
-import kotlin.io.path.writeText
+import kotlin.io.path.*
 
-interface SerializedData {
-    fun asString(): String
+abstract class SerializedData private constructor() {
+    abstract fun asString(): String
 
-    fun asBytes(): ByteArray
+    abstract fun asBytes(): ByteArray
 
-    fun save(path: Path)
+    abstract fun save(path: Path)
 
     companion object {
         @JvmStatic
         @JvmName("of")
-        operator fun invoke(text: String) = object : SerializedData {
+        operator fun invoke(text: String) = object : SerializedData() {
             override fun asString() = text
 
             override fun asBytes() = text.toByteArray()
@@ -30,7 +25,7 @@ interface SerializedData {
 
         @JvmStatic
         @JvmName("of")
-        operator fun invoke(bytes: ByteArray) = object : SerializedData {
+        operator fun invoke(bytes: ByteArray) = object : SerializedData() {
             override fun asString() = String(bytes)
 
             override fun asBytes() = bytes
@@ -42,7 +37,7 @@ interface SerializedData {
 
         @JvmStatic
         @JvmName("of")
-        operator fun invoke(file: Path) = object : SerializedData {
+        operator fun invoke(file: Path) = object : SerializedData() {
             override fun asString() = file.readText()
 
             override fun asBytes() = file.readBytes()

@@ -2,15 +2,26 @@ package net.typho.data_util.impl.xml
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.ParsingIterator
+import net.typho.data_util.SerializedData
+import net.typho.data_util.codec.ValueInput
+import net.typho.data_util.codec.ValueOutput
 
 open class XMLFormat(
     @JvmField
     val readComments: Boolean = false,
     @JvmField
     val prettyPrint: Boolean = false
-) : DataFormat<String, XMLDocument> {
-    override fun read(input: String): XMLDocument {
-        val input = ParsingIterator(input, true)
+) : DataFormat<XMLDocument> {
+    override fun createInput(data: XMLDocument): ValueInput {
+        TODO("Not yet implemented")
+    }
+
+    override fun createOutput(): ValueOutput.WithResult<XMLDocument> {
+        TODO("Not yet implemented")
+    }
+
+    override fun read(input: SerializedData): XMLDocument {
+        val input = ParsingIterator(input.asString(), true)
 
         fun readWord(metadataAllowed: Boolean): String {
             fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
@@ -211,7 +222,7 @@ open class XMLFormat(
         return XMLDocument(root, metadata)
     }
 
-    override fun write(data: XMLDocument) = data.toXMLString(prettyPrint)
+    override fun write(data: XMLDocument) = SerializedData(data.toXMLString(prettyPrint))
 
     fun write(element: XMLElement) = element.toXMLString(prettyPrint)
 
@@ -283,7 +294,7 @@ open class XMLFormat(
             ))
             println(format.write(xml))
             println()
-            val parsed = format.read("<?xml version=\"1.0\" ?><abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>")
+            val parsed = format.read(SerializedData("<?xml version=\"1.0\" ?><abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>"))
             println(parsed)
             println(format.write(parsed))
         }

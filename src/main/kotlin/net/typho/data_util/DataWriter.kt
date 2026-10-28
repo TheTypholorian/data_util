@@ -1,12 +1,13 @@
 package net.typho.data_util
 
+import net.typho.data_util.codec.ValueOutput
 import java.util.function.Function
 
 fun interface DataWriter<T> {
-    fun write(output: SingleValueOutput, value: T)
+    fun write(output: ValueOutput, value: T)
 
-    fun <R> write(output: SingleValueOutput.WithResult<R>, value: T): R {
-        write(output as SingleValueOutput, value)
+    fun <R> write(output: ValueOutput.WithResult<R>, value: T): R {
+        write(output as ValueOutput, value)
         return output.finish()
     }
 
@@ -15,7 +16,7 @@ fun interface DataWriter<T> {
     ): DataWriter<N> {
         val parent = this
         return object : DataWriter<N> {
-            override fun write(output: SingleValueOutput, value: N) {
+            override fun write(output: ValueOutput, value: N) {
                 parent.write(output, write.apply(value))
             }
 
@@ -31,7 +32,7 @@ fun interface DataWriter<T> {
     ): DataWriter<N> {
         val parent = this
         return object : DataWriter<N> {
-            override fun write(output: SingleValueOutput, value: N) {
+            override fun write(output: ValueOutput, value: N) {
                 parent.write(output, write.apply(value))
             }
 

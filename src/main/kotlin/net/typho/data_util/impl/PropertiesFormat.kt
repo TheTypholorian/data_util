@@ -2,19 +2,30 @@ package net.typho.data_util.impl
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
-import kotlin.collections.set
+import net.typho.data_util.SerializedData
+import net.typho.data_util.codec.ValueInput
+import net.typho.data_util.codec.ValueOutput
 
 open class PropertiesFormat(
     @JvmField
     val delimiterToWrite: Char = '='
-) : DataFormat<String, Map<String, String>> {
+) : DataFormat<Map<String, String>> {
     init {
         if (delimiterToWrite != '=' && delimiterToWrite != ':') {
             throw IllegalArgumentException("Properties file delimiter must be '=' or ';', not '$delimiterToWrite'")
         }
     }
 
-    override fun read(input: String): Map<String, String> {
+    override fun createInput(data: Map<String, String>): ValueInput {
+        TODO("Not yet implemented")
+    }
+
+    override fun createOutput(): ValueOutput.WithResult<Map<String, String>> {
+        TODO("Not yet implemented")
+    }
+
+    override fun read(input: SerializedData): Map<String, String> {
+        val input = input.asString()
         val map = mutableMapOf<String, String>()
         var lineIndex = 0
 
@@ -51,7 +62,7 @@ open class PropertiesFormat(
         return map
     }
 
-    override fun write(data: Map<String, String>): String {
+    override fun write(data: Map<String, String>): SerializedData {
         val builder = StringBuilder()
 
         data.forEach { (key, value) ->
@@ -63,7 +74,7 @@ open class PropertiesFormat(
             builder.appendLine("$key$delimiterToWrite${DataFormat.writeEscapeSequences(value)}")
         }
 
-        return builder.toString()
+        return SerializedData(builder.toString())
     }
 
     companion object Default : PropertiesFormat()

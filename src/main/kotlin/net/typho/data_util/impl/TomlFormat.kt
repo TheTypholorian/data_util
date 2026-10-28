@@ -2,7 +2,7 @@ package net.typho.data_util.impl
 
 /*
 open class TomlFormat(
-) : StringDataFormat<Map<String, Any?>>, TypedDataFormat<String, Map<String, Any?>> {
+) : StringDataFormat<Map<String, Any?>>, DataFormat<String, Map<String, Any?>> {
     @Suppress("UNCHECKED_CAST")
     override fun createInput(parsed: Map<String, Any?>): SequentialInput {
         return SequentialInput.fromMap(parsed)

@@ -1,26 +1,19 @@
 package net.typho.data_util.test
 
+import net.typho.data_util.SerializedData
+import net.typho.data_util.anno.FieldConfig
 import net.typho.data_util.codec.Codec
-import net.typho.data_util.anno.FieldCodec
-import net.typho.data_util.anno.FieldDefault
-import net.typho.data_util.anno.FieldRange
-import net.typho.data_util.codec.MapCodec
-import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueOutput
-import net.typho.data_util.anno.InlineCodec
-import net.typho.data_util.impl.JsonFormat
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
+import net.typho.data_util.codec.ValueInput
+import net.typho.data_util.codec.ValueOutput
+import net.typho.data_util.json.JsonFormat
 
 object TestCodecs {
     val STRING_CODEC = object : Codec<String> {
-        override fun read(input: SingleValueInput): String {
+        override fun read(input: ValueInput): String {
             return input.readString() + "_world"
         }
 
-        override fun write(output: SingleValueOutput, value: String) {
+        override fun write(output: ValueOutput, value: String) {
             output.writeString(value)
         }
 
@@ -40,12 +33,18 @@ data class OtherTestData(
 }
 
 data class TestData(
-    @FieldCodec(TestCodecs::class, "STRING_CODEC")
+    @FieldConfig("""
+        codec = TestCodecs.STRING_CODEC
+    """)
     val a: String,
-    @FieldRange(123.0, 123.0)
-    @FieldDefault(value = "123")
+    @FieldConfig("""
+        range = 123..123
+        default = 123
+    """)
     val b: Int,
-    @FieldDefault(value = "10203")
+    @FieldConfig("""
+        default = 10203f
+    """)
     val c: Float,
     val d: Boolean?,
     val other: OtherTestData?
@@ -68,17 +67,9 @@ fun main(args: Array<String>) {
     val json = format.write(TestData.CODEC, test)
     println(json)
     println(format.read(TestData.CODEC, json))
-    println(format.read(TestData.CODEC, """
+    println(format.read(TestData.CODEC, SerializedData("""
         {
             "b": 123
         }
-    """.trimIndent()))
-
-    val bytes = ByteArrayOutputStream()
-    TestData.CODEC.write(SingleValueOutput.toData(DataOutputStream(bytes)), test)
-    println(test)
-    println(TestData.CODEC.read(SingleValueInput.fromData(DataInputStream(ByteArrayInputStream(bytes.toByteArray())))))
-
-    val input = SingleValueInput.fromObject("hello_testing")
-    println(TestData.CODEC.read(input))
+    """.trimIndent())))
 }

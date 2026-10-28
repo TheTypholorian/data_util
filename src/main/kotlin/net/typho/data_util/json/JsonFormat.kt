@@ -1,27 +1,24 @@
-package net.typho.data_util.impl
+package net.typho.data_util.json
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
-import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueOutput
-import java.util.function.Consumer
+import net.typho.data_util.SerializedData
+import net.typho.data_util.impl.TokenConstants
+import net.typho.data_util.impl.TokenList
 
 open class JsonFormat(
     @JvmField
     val allowComments: Boolean = false,
     @JvmField
     val prettyPrint: Boolean = false
-) : TypedDataFormat<String, Any> {
-    override fun createInput(parsed: Any): SingleValueInput {
-        return SingleValueInput.fromObject(parsed)
-    }
+) : DataFormat<Map<String, Any?>> {
+    override fun createInput(data: Map<String, Any?>) = JsonValueInput(data)
 
-    override fun createOutput(out: Consumer<Any>): SingleValueOutput {
-        return SingleValueOutput.toConsumer { out.accept(it ?: throw DataWriteException("Json does not support writing null root values")) }
-    }
+    override fun createOutput() = JsonValueOutput<Map<String, Any?>>()
 
-    override fun read(input: String): Any {
+    override fun read(input: SerializedData): Map<String, Any?> {
+        val input = input.asString()
         val tokens = TokenList()
         var index = 0
 
@@ -123,30 +120,20 @@ open class JsonFormat(
 
                     if (c1 == 'E' || c1 == 'e') { // exponents
                         if (exponent) {
-                            tokens.add(input.substring(numberStart, index).toFloat())
+                            tokens.add(JsonNumber(input.substring(numberStart, index)))
                             continue@mainLoop
                         }
 
                         exponent = true
                     } else if (c1 == '.') { // decimals
                         if (float) {
-                            tokens.add(input.substring(numberStart, index).toFloat())
+                            tokens.add(JsonNumber(input.substring(numberStart, index)))
                             continue@mainLoop
                         }
 
                         float = true
                     } else if (!(c1.isDigit() || (exponent && (c1 == '-' || c1 == '+')))) { // number ends
-                        if (float || exponent) {
-                            tokens.add(input.substring(numberStart, index).toFloat())
-                        } else {
-                            val value = input.substring(numberStart, index).toLong()
-
-                            if (value shr 32 == 0L) {
-                                tokens.add(value.toInt())
-                            } else {
-                                tokens.add(value)
-                            }
-                        }
+                        tokens.add(JsonNumber(input.substring(numberStart, index)))
 
                         continue@mainLoop
                     }
@@ -231,10 +218,11 @@ open class JsonFormat(
             throw DataReadException("Expected an array or object but got nothing at line 0")
         }
 
-        val value = when (val token = iterator.next()) {
-            TokenConstants.ARRAY_OPEN -> readList({ tokens.lineNumber(0) }, tokens, iterator)
-            TokenConstants.OBJECT_OPEN -> readObject({ tokens.lineNumber(0) }, tokens, iterator)
-            else -> throw DataReadException("Expected an array or object but got $token at line ${tokens.lineNumber(0)}")
+        val token = iterator.next()
+        val value = if (token == TokenConstants.OBJECT_OPEN) {
+            readObject({ tokens.lineNumber(0) }, tokens, iterator)
+        } else {
+            throw DataReadException("Expected an array or object but got $token at line ${tokens.lineNumber(0)}")
         }
 
         if (iterator.hasNext()) {
@@ -255,18 +243,36 @@ open class JsonFormat(
                 TokenConstants.ARRAY_OPEN -> list.add(readList({ tokens.lineNumber(index) }, tokens, iterator))
                 TokenConstants.ARRAY_CLOSE -> return list
                 TokenConstants.OBJECT_OPEN -> list.add(readObject({ tokens.lineNumber(index) }, tokens, iterator))
-                is TokenConstants -> throw DataReadException("Expected an array, object, or primitive but got $token in array at line ${tokens.lineNumber(index)}")
+                is TokenConstants -> throw DataReadException(
+                    "Expected an array, object, or primitive but got $token in array at line ${
+                        tokens.lineNumber(
+                            index
+                        )
+                    }"
+                )
                 else -> list.add(token)
             }
 
             if (!iterator.hasNext()) {
-                throw DataReadException("Expected comma or array end but got nothing in array at line ${tokens.lineNumber(index)}")
+                throw DataReadException(
+                    "Expected comma or array end but got nothing in array at line ${
+                        tokens.lineNumber(
+                            index
+                        )
+                    }"
+                )
             }
 
             when (val commaToken = iterator.next()) {
                 TokenConstants.COMMA -> {}
                 TokenConstants.ARRAY_CLOSE -> return list
-                else -> throw DataReadException("Expected comma or array end but got $commaToken in array at line ${tokens.lineNumber(index)}")
+                else -> throw DataReadException(
+                    "Expected comma or array end but got $commaToken in array at line ${
+                        tokens.lineNumber(
+                            index
+                        )
+                    }"
+                )
             }
         }
 
@@ -284,7 +290,13 @@ open class JsonFormat(
                 return map
             }
 
-            val key = (keyToken as? String) ?: throw DataReadException("Expected string but got $keyToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
+            val key = (keyToken as? String) ?: throw DataReadException(
+                "Expected string but got $keyToken in object at line ${
+                    tokens.lineNumber(
+                        iterator.previousIndex()
+                    )
+                }"
+            )
 
             if (map.containsKey(key)) {
                 throw DataReadException("Duplicate object entry '$key' in object at line ${tokens.lineNumber(iterator.previousIndex())}")
@@ -293,14 +305,26 @@ open class JsonFormat(
             val colonToken = iterator.next()
 
             if (colonToken !== TokenConstants.COLON) {
-                throw DataReadException("Expected colon but got $colonToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
+                throw DataReadException(
+                    "Expected colon but got $colonToken in object at line ${
+                        tokens.lineNumber(
+                            iterator.previousIndex()
+                        )
+                    }"
+                )
             }
 
             val valueIndex = iterator.nextIndex()
             val value = when (val valueToken = iterator.next()) {
                 TokenConstants.ARRAY_OPEN -> readList({ tokens.lineNumber(valueIndex) }, tokens, iterator)
                 TokenConstants.OBJECT_OPEN -> readObject({ tokens.lineNumber(valueIndex) }, tokens, iterator)
-                is TokenConstants -> throw DataReadException("Expected an array, object, or primitive but got $valueToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
+                is TokenConstants -> throw DataReadException(
+                    "Expected an array, object, or primitive but got $valueToken in object at line ${
+                        tokens.lineNumber(
+                            iterator.previousIndex()
+                        )
+                    }"
+                )
                 else -> valueToken
             }
 
@@ -309,21 +333,23 @@ open class JsonFormat(
             when (val commaToken = iterator.next()) {
                 TokenConstants.COMMA -> {}
                 TokenConstants.OBJECT_CLOSE -> return map
-                else -> throw DataReadException("Expected comma or object end but got $commaToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
+                else -> throw DataReadException(
+                    "Expected comma or object end but got $commaToken in object at line ${
+                        tokens.lineNumber(
+                            iterator.previousIndex()
+                        )
+                    }"
+                )
             }
         }
 
         throw DataReadException("Unterminated object at line ${line()}")
     }
 
-    override fun write(data: Any): String {
-        if (data !is List<*> && data !is Map<*, *>) {
-            throw DataWriteException("Jsons must be either a list or a map, got $data")
-        }
-
-        return buildString {
+    override fun write(data: Map<String, Any?>): SerializedData {
+        return SerializedData.Companion(buildString {
             writeValue(data, 0, this)
-        }
+        })
     }
 
     private fun writeValue(value: Any?, depth: Int, builder: StringBuilder) {

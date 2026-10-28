@@ -4,14 +4,9 @@ import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.DataWriter
-import net.typho.data_util.SequentialInput
-import net.typho.data_util.SequentialOutput
-import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueOutput
 import net.typho.data_util.anno.FieldCodec
 import net.typho.data_util.anno.FieldDefault
 import net.typho.data_util.anno.FieldRange
-import net.typho.data_util.anno.InlineCodec
 import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
@@ -19,22 +14,16 @@ import java.lang.reflect.ParameterizedType
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
-import kotlin.Double
-import kotlin.Float
-import kotlin.Int
-import kotlin.Long
-import kotlin.Short
-import kotlin.jvm.java
 import kotlin.reflect.jvm.kotlinProperty
 
 interface Codec<T> : DataReader<T>, DataWriter<T> {
     companion object {
         private fun <T> simple(name: String, read: DataReader<T>, write: DataWriter<T>) = object : Codec<T> {
-            override fun read(input: SingleValueInput): T {
+            override fun read(input: ValueInput): T {
                 return read.read(input)
             }
 
-            override fun write(output: SingleValueOutput, value: T) {
+            override fun write(output: ValueOutput, value: T) {
                 write.write(output, value)
             }
 
@@ -54,29 +43,27 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         )
 
         @JvmField
-        val BOOL = simple("Boolean Codec", SingleValueInput::readBoolean, SingleValueOutput::writeBoolean)
+        val BOOL = simple("Boolean Codec", ValueInput::readBoolean, ValueOutput::writeBoolean)
         @JvmField
-        val BYTE = simple("Byte Codec", SingleValueInput::readByte, SingleValueOutput::writeByte)
+        val BYTE = simple("Byte Codec", ValueInput::readByte, ValueOutput::writeByte)
         @JvmField
-        val SHORT = simple("Short Codec", SingleValueInput::readShort, SingleValueOutput::writeShort)
+        val SHORT = simple("Short Codec", ValueInput::readShort, ValueOutput::writeShort)
         @JvmField
-        val INT = simple("Int Codec", SingleValueInput::readInt, SingleValueOutput::writeInt)
+        val INT = simple("Int Codec", ValueInput::readInt, ValueOutput::writeInt)
         @JvmField
-        val VAR_INT = simple("Var Int Codec", SingleValueInput::readVarInt, SingleValueOutput::writeVarInt)
+        val LONG = simple("Long Codec", ValueInput::readLong, ValueOutput::writeLong)
         @JvmField
-        val LONG = simple("Long Codec", SingleValueInput::readLong, SingleValueOutput::writeLong)
+        val FLOAT = simple("Float Codec", ValueInput::readFloat, ValueOutput::writeFloat)
         @JvmField
-        val FLOAT = simple("Float Codec", SingleValueInput::readFloat, SingleValueOutput::writeFloat)
+        val DOUBLE = simple("Double Codec", ValueInput::readDouble, ValueOutput::writeDouble)
         @JvmField
-        val DOUBLE = simple("Double Codec", SingleValueInput::readDouble, SingleValueOutput::writeDouble)
-        @JvmField
-        val STRING = simple("String Codec", SingleValueInput::readString, SingleValueOutput::writeString)
+        val STRING = simple("String Codec", ValueInput::readString, ValueOutput::writeString)
 
         @JvmOverloads
         @JvmStatic
         fun <E : Enum<E>> enumCodec(cls: Class<E>, caseSensitive: Boolean = false): Codec<E> {
             return object : Codec<E> {
-                override fun read(input: SingleValueInput): E {
+                override fun read(input: ValueInput): E {
                     try {
                         return input.readEnum(cls, caseSensitive)
                     } catch (e: RuntimeException) {
@@ -84,7 +71,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                     }
                 }
 
-                override fun write(output: SingleValueOutput, value: E) {
+                override fun write(output: ValueOutput, value: E) {
                     try {
                         output.writeEnum(value)
                     } catch (e: RuntimeException) {
@@ -98,33 +85,49 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
         }
 
-        @JvmStatic
-        fun <V> unboundedMap(valueCodec: Codec<V>): Codec<Map<String, V>> {
-            return object : Codec<Map<String, V>> {
-                override fun read(input: SingleValueInput): Map<String, V> {
-                    val map = mutableMapOf<String, V>()
-                    input.readDynamicMap().forEach { (key, value) -> map[key] = valueCodec.read(value) }
-                    return map
-                }
-
-                override fun write(
-                    output: SingleValueOutput,
-                    value: Map<String, V>
-                ) {
-                    output.writeDynamicMap(value.map { (key, value) -> key to Consumer { valueCodec.write(it, value) } })
-                }
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
         @JvmOverloads
         @JvmStatic
-        fun <T> getPrimitiveCodec(cls: Class<T>, isVarInt: Boolean = false): Codec<T>? {
+        fun <V> dynamicMap(valueCodec: Codec<V>, errorOnDuplicateKeys: Boolean = true) = dynamicMap({ it }, { it }, valueCodec, errorOnDuplicateKeys)
+
+        @JvmOverloads
+        @JvmStatic
+        fun <K, V> dynamicMap(
+            readKey: Function<String, K>,
+            writeKey: Function<K, String>,
+            valueCodec: Codec<V>,
+            errorOnDuplicateKeys: Boolean = true
+        ): Codec<Map<K, V>> = simple(
+            "Dynamic Map Codec with value codec $valueCodec",
+            { input ->
+                val map = mutableMapOf<K, V>()
+                input.readDynamicMap().forEach { (key, value) ->
+                    val key = readKey.apply(key)
+
+                    if (errorOnDuplicateKeys && map.containsKey(key)) {
+                        throw DataReadException("Duplicate key in dynamic map '$key'")
+                    }
+
+                    map[key] = valueCodec.read(value)
+                }
+                map
+            },
+            { output, value ->
+                output.writeDynamicMap(
+                    value.map { (key, value) ->
+                        writeKey.apply(key) to Consumer<ValueOutput> { valueCodec.write(it, value) }
+                    }.iterator()
+                )
+            }
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        @JvmStatic
+        fun <T> getPrimitiveCodec(cls: Class<T>): Codec<T>? {
             return when (cls) {
                 Boolean::class.java, Boolean::class.javaObjectType -> BOOL as Codec<T>
                 Byte::class.java, Byte::class.javaObjectType -> BYTE as Codec<T>
                 Short::class.java, Short::class.javaObjectType -> SHORT as Codec<T>
-                Int::class.java, Int::class.javaObjectType -> (if (isVarInt) VAR_INT else INT) as Codec<T>
+                Int::class.java, Int::class.javaObjectType -> (INT) as Codec<T>
                 Long::class.java, Long::class.javaObjectType -> LONG as Codec<T>
                 Float::class.java, Float::class.javaObjectType -> FLOAT as Codec<T>
                 Double::class.java, Double::class.javaObjectType -> DOUBLE as Codec<T>
@@ -281,29 +284,59 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             return generics(codec1)
         }
 
+        @JvmOverloads
         @JvmStatic
-        fun <T> either(primary: Codec<T>, options: List<DataReader<T>>): Codec<T> {
-            if (options.isEmpty()) {
-                throw IllegalArgumentException("Must specify at least one option")
+        fun <T> multi(
+            primary: Codec<T>,
+            read: Function<ValueType, DataReader<T>>,
+            write: Function<T, Codec<T>> = { primary }
+        ) = simple(
+            "Multi Codec with primary codec $primary",
+            { input ->
+                val type = input.type
+
+                if (type == null) {
+                    primary.read(input)
+                } else {
+                    read.apply(type).read(input)
+                }
+            },
+            { output, value ->
+                if (output.areTypesWritten) {
+                    write.apply(value)
+                } else {
+                    primary
+                }.write(output, value)
             }
+        )
 
-            val all = mutableListOf<DataReader<T>>(primary)
-            all.addAll(options)
-
-            return object : Codec<T> {
-                override fun read(input: SingleValueInput): T {
-                    return input.readEither(all)
-                }
-
-                override fun write(output: SingleValueOutput, value: T) {
-                    primary.write(output, value)
-                }
-
-                override fun toString(): String {
-                    return "Either codec with primary $primary and options [${options.joinToString(separator = "\n", prefix = "\n").replace("\n", "\n\t")}\n]"
-                }
+        @JvmOverloads
+        @JvmStatic
+        fun <V, T> versioned(
+            versionCodec: Codec<V>,
+            versionGetter: Function<T, V>,
+            dataCodec: Function<V, Codec<T>>,
+            versionKey: String = "version"
+        ) = simple(
+            "Versioned Codec with version codec $versionCodec, version getter $versionGetter, version key $versionKey",
+            { input ->
+                val version = versionCodec.read(input.readStaticMap(listOf(versionKey)).next())
+                dataCodec.apply(version).read(input)
+            },
+            { output, value ->
+                val version = versionGetter.apply(value)
+                output.writeStaticMap(listOf(versionKey to Consumer<ValueOutput> { versionCodec.write(it, version) }).iterator())
+                dataCodec.apply(version).write(output, value)
             }
-        }
+        )
+
+        @JvmOverloads
+        @JvmStatic
+        fun <T> versioned(
+            versionGetter: Function<T, String>,
+            dataCodec: Function<String, Codec<T>>,
+            versionKey: String = "version"
+        ) = versioned(STRING, versionGetter, dataCodec, versionKey)
 
         /**
          * @param reverseInheritanceOrder defines where superclass fields are in the constructor, True = at the end and False = at the start (defaults to false because it's the IntelliJ default)
@@ -342,13 +375,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
             val entries = fields.map { field -> Entry(field, getFieldCodec(cls, field)) }
 
-            val codec = object : MapCodec<T> {
+            return object : MapCodec<T> {
                 override val keys = entries.map { it.field.name }
 
-                override fun read(input: SequentialInput): T {
+                override fun read(input: Iterator<ValueInput>): T {
                     val args = entries.map {
                         try {
-                            it.codec.read(input.readNextEntry())
+                            it.codec.read(input.next())
                         } catch (e: RuntimeException) {
                             throw DataReadException("Error while reading map entry ${it.field.name}", e, true, false)
                         }
@@ -356,136 +389,32 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                     return constructor.newInstance(*args.toTypedArray()) as T
                 }
 
-                fun <V> write(field: Field, codec: Codec<V>, value: T, output: SequentialOutput) {
+                fun <V> write(field: Field, codec: Codec<V>, value: T): Consumer<ValueOutput> {
                     try {
-                        codec.write(output.writeNextEntry(), field.get(value) as V)
+                        val value = field.get(value) as V
+                        return { codec.write(it, value) }
                     } catch (e: RuntimeException) {
                         throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
                     }
                 }
 
-                override fun write(output: SequentialOutput, value: T) {
-                    for (entry in entries) {
-                        write(entry.field, entry.codec, value, output)
-                    }
+                override fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>> {
+                    return entries.map {
+                        it.field.name to write(it.field, it.codec, value)
+                    }.iterator()
                 }
 
                 override fun toString(): String {
                     return "Reflected MapCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
                 }
             }
-
-            return if (cls.isAnnotationPresent(InlineCodec::class.java)) {
-                val inline = cls.getAnnotation(InlineCodec::class.java)
-                val candidates = entries.withIndex().filter { it.value.codec !is OptionalCodec }
-
-                if (candidates.size != 1) {
-                    throw IllegalArgumentException("$cls has @InlineCodec but has ${candidates.size} non-optional fields, must be exactly one.")
-                }
-
-                val primary = candidates.first()
-                val reader = object : DataReader<T> {
-                    override fun read(input: SingleValueInput): T {
-                        val args = entries.mapIndexed { index, entry -> if (index == primary.index) {
-                            try {
-                                primary.value.codec.read(input)
-                            } catch (e: RuntimeException) {
-                                throw DataReadException("Error while reading inlined map entry ${entry.field.name}", e, true, false)
-                            }
-                        } else (entry.codec as OptionalCodec).default }
-                        return constructor.newInstance(*args.toTypedArray()) as T
-                    }
-
-                    override fun toString(): String {
-                        return "Reflected inline reader of $cls"
-                    }
-                }
-
-                if (inline.writeInlined) {
-                    either(object : MapCodec<T> {
-                        override val keys = entries.map { it.field.name }
-
-                        override fun read(input: SequentialInput): T {
-                            val args = entries.map {
-                                try {
-                                    it.codec.read(input.readNextEntry())
-                                } catch (e: RuntimeException) {
-                                    throw DataReadException("Error while reading map entry ${it.field.name}", e, true, false)
-                                }
-                            }
-                            return constructor.newInstance(*args.toTypedArray()) as T
-                        }
-
-                        fun <V> writeInline(field: Field, codec: Codec<V>, value: T, output: SingleValueOutput) {
-                            try {
-                                codec.write(output, field.get(value) as V)
-                            } catch (e: RuntimeException) {
-                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
-                            }
-                        }
-
-                        fun <V> writeAlreadyGotten(field: Field, codec: Codec<V>, value: Any?, output: SequentialOutput) {
-                            try {
-                                codec.write(output.writeNextEntry(), value as V)
-                            } catch (e: RuntimeException) {
-                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
-                            }
-                        }
-
-                        fun <V> write(field: Field, codec: Codec<V>, value: T, output: SequentialOutput) {
-                            try {
-                                codec.write(output.writeNextEntry(), field.get(value) as V)
-                            } catch (e: RuntimeException) {
-                                throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
-                            }
-                        }
-
-                        override fun write(output: SequentialOutput, value: T) {
-                            for (entry in entries) {
-                                write(entry.field, entry.codec, value, output)
-                            }
-                        }
-
-                        override fun write(output: SingleValueOutput, value: T) {
-                            val values = entries.map { entry -> entry.field.get(value) }
-                            var canInline = true
-
-                            values.forEachIndexed { index, value ->
-                                val codec = entries[index].codec
-
-                                if (codec is OptionalCodec) {
-                                    if (codec.default != value) {
-                                        canInline = false
-                                    }
-                                }
-                            }
-
-                            if (canInline) {
-                                writeInline(primary.value.field, primary.value.codec, value, output)
-                            } else {
-                                val map = output.writeStaticMap(keys)
-
-                                entries.forEachIndexed { index, entry ->
-                                    writeAlreadyGotten(entry.field, entry.codec, values[index], map)
-                                }
-                            }
-                        }
-
-                        override fun toString(): String {
-                            return "Reflected MapCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
-                        }
-                    }, listOf(reader))
-                } else {
-                    either(codec, listOf(reader))
-                }
-            } else codec
         }
     }
 
     fun withCondition(condition: Predicate<T>, error: Function<T, String>, name: String): Codec<T> {
         val parent = this
         return object : Codec<T> {
-            override fun read(input: SingleValueInput): T {
+            override fun read(input: ValueInput): T {
                 val value = parent.read(input)
 
                 if (!condition.test(value)) {
@@ -495,7 +424,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 return value
             }
 
-            override fun write(output: SingleValueOutput, value: T) {
+            override fun write(output: ValueOutput, value: T) {
                 if (!condition.test(value)) {
                     throw DataWriteException(error.apply(value))
                 }
@@ -509,17 +438,14 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         }
     }
 
-    fun optional(): OptionalCodec<T?> {
+    fun optional(): Codec<T?> {
         val parent = this
-        return object : OptionalCodec<T?> {
-            override val default: T?
-                get() = null
-
-            override fun read(input: SingleValueInput): T? {
+        return object : Codec<T?> {
+            override fun read(input: ValueInput): T? {
                 return input.readOptional(parent)
             }
 
-            override fun write(output: SingleValueOutput, value: T?) {
+            override fun write(output: ValueOutput, value: T?) {
                 output.writeOptional(value, parent)
             }
 
@@ -529,17 +455,14 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         }
     }
 
-    fun optional(default: T): OptionalCodec<T> {
+    fun optional(default: T): Codec<T> {
         val parent = this
-        return object : OptionalCodec<T> {
-            override val default: T
-                get() = default
-
-            override fun read(input: SingleValueInput): T {
+        return object : Codec<T> {
+            override fun read(input: ValueInput): T {
                 return input.readOptional(parent) ?: default
             }
 
-            override fun write(output: SingleValueOutput, value: T) {
+            override fun write(output: ValueOutput, value: T) {
                 output.writeOptional(value, parent)
             }
 
@@ -552,13 +475,36 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
     fun listOf(): Codec<List<T>> {
         val parent = this
         return object : Codec<List<T>> {
-            override fun read(input: SingleValueInput): List<T> {
-                return input.readList().toList(parent::read)
+            override fun read(input: ValueInput): List<T> {
+                return input.readDynamicList().asSequence().map { parent.read(it) }.toList()
             }
 
-            override fun write(output: SingleValueOutput, value: List<T>) {
-                val list = output.writeList(value.size)
-                value.forEach { parent.write(list.writeNextEntry(), it) }
+            override fun write(output: ValueOutput, value: List<T>) {
+                output.writeDynamicList(value.map { value -> Consumer<ValueOutput> { output -> parent.write(output, value) } })
+            }
+
+            override fun toString(): String {
+                return "$parent as list"
+            }
+        }
+    }
+
+    /**
+     * More optimized for packets than doing a normal [listOf] plus checking the size.
+     */
+    fun listOf(size: Int): Codec<List<T>> {
+        val parent = this
+        return object : Codec<List<T>> {
+            override fun read(input: ValueInput): List<T> {
+                return input.readStaticList(size).asSequence().map { parent.read(it) }.toList()
+            }
+
+            override fun write(output: ValueOutput, value: List<T>) {
+                if (value.size != size) {
+                    throw DataReadException("List must have $size elements, instead has ${value.size}")
+                }
+
+                output.writeStaticList(value.map { value -> Consumer<ValueOutput> { output -> parent.write(output, value) } }.iterator())
             }
 
             override fun toString(): String {
@@ -573,37 +519,16 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
     ): Codec<N> {
         val parent = this
         return object : Codec<N> {
-            override fun read(input: SingleValueInput): N {
+            override fun read(input: ValueInput): N {
                 return read.apply(parent.read(input))
             }
 
-            override fun write(output: SingleValueOutput, value: N) {
+            override fun write(output: ValueOutput, value: N) {
                 parent.write(output, write.apply(value))
             }
 
             override fun toString(): String {
                 return "$parent mapped with read $read and write $write"
-            }
-        }
-    }
-
-    fun <N> map(
-        cls: Class<N>,
-        read: Function<T, N>,
-        write: Function<N, T>
-    ): Codec<N> {
-        val parent = this
-        return object : Codec<N> {
-            override fun read(input: SingleValueInput): N {
-                return read.apply(parent.read(input))
-            }
-
-            override fun write(output: SingleValueOutput, value: N) {
-                parent.write(output, write.apply(value))
-            }
-
-            override fun toString(): String {
-                return "$parent mapped to ${cls.name}"
             }
         }
     }

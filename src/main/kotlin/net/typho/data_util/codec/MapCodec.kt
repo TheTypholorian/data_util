@@ -2,16 +2,12 @@ package net.typho.data_util.codec
 
 import net.typho.data_util.DataReadException
 import net.typho.data_util.DataWriteException
-import net.typho.data_util.SequentialInput
-import net.typho.data_util.SequentialOutput
-import net.typho.data_util.SingleValueInput
-import net.typho.data_util.SingleValueOutput
 import sun.misc.Unsafe
 import java.lang.reflect.Modifier
 import java.util.function.BiConsumer
+import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Supplier
-import kotlin.jvm.java
 import kotlin.reflect.KMutableProperty
 
 interface MapCodec<T> : Codec<T> {
@@ -25,17 +21,18 @@ interface MapCodec<T> : Codec<T> {
         @JvmField
         val setter: BiConsumer<T, V>
     ) {
-        fun read(value: T, input: SequentialInput) {
+        fun read(value: T, input: ValueInput) {
             try {
-                setter.accept(value, codec.read(input.readNextEntry()))
+                setter.accept(value, codec.read(input))
             } catch (e: RuntimeException) {
                 throw DataReadException("Error while reading map entry $key", e, true, false)
             }
         }
 
-        fun write(value: T, output: SequentialOutput) {
+        fun write(value: T): Consumer<ValueOutput> {
             try {
-                codec.write(output.writeNextEntry(), getter.apply(value))
+                val value = getter.apply(value)
+                return { codec.write(it, value) }
             } catch (e: RuntimeException) {
                 throw DataWriteException("Error while writing map entry $key", e, true, false)
             }
@@ -44,16 +41,16 @@ interface MapCodec<T> : Codec<T> {
 
     val keys: List<String>
 
-    fun read(input: SequentialInput): T
+    fun read(input: Iterator<ValueInput>): T
 
-    override fun read(input: SingleValueInput): T {
+    override fun read(input: ValueInput): T {
         return read(input.readStaticMap(keys))
     }
 
-    fun write(output: SequentialOutput, value: T)
+    fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>>
 
-    override fun write(output: SingleValueOutput, value: T) {
-        write(output.writeStaticMap(keys), value)
+    override fun write(output: ValueOutput, value: T) {
+        output.writeStaticMap(write(value))
     }
 
     class Builder<T>(
@@ -168,20 +165,18 @@ interface MapCodec<T> : Codec<T> {
         ) = object : MapCodec<T> {
             override val keys = entries.map { it.key }
 
-            override fun read(input: SequentialInput): T {
+            override fun read(input: Iterator<ValueInput>): T {
                 val value = constructor.get()
 
                 for (entry in entries) {
-                    entry.read(value, input)
+                    entry.read(value, input.next())
                 }
 
                 return value
             }
 
-            override fun write(output: SequentialOutput, value: T) {
-                for (entry in entries) {
-                    entry.write(value, output)
-                }
+            override fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>> {
+                return entries.map { it.key to it.write(value) }.iterator()
             }
 
             override fun toString(): String {

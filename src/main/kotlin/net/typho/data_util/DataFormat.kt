@@ -1,13 +1,21 @@
 package net.typho.data_util
 
+import net.typho.data_util.codec.Codec
+import net.typho.data_util.codec.ValueInput
+import net.typho.data_util.codec.ValueOutput
+
 interface DataFormat<V> {
     fun read(input: SerializedData): V
 
-    fun createInput(data: V): SingleValueInput
+    fun createInput(data: V): ValueInput
+
+    fun <T> read(codec: Codec<T>, input: SerializedData): T = codec.read(createInput(read(input)))
 
     fun write(data: V): SerializedData
 
-    fun createOutput(): SingleValueOutput.WithResult<V>
+    fun createOutput(): ValueOutput.WithResult<V>
+
+    fun <T> write(codec: Codec<T>, value: T): SerializedData = write(createOutput().also { codec.write(it, value) }.finish())
 
     companion object {
         /**
