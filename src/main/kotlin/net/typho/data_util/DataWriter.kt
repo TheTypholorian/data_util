@@ -5,6 +5,11 @@ import java.util.function.Function
 fun interface DataWriter<T> {
     fun write(output: SingleValueOutput, value: T)
 
+    fun <R> write(output: SingleValueOutput.WithResult<R>, value: T): R {
+        write(output as SingleValueOutput, value)
+        return output.finish()
+    }
+
     fun <N> mapWrite(
         write: Function<N, T>
     ): DataWriter<N> {

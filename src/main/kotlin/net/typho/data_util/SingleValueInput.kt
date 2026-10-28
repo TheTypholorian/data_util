@@ -1,12 +1,6 @@
 package net.typho.data_util
 
-import net.typho.data_util.impl.xml.XMLElement
-import net.typho.data_util.impl.xml.XMLText
-import sun.security.krb5.Confounder.bytes
-import java.io.ByteArrayOutputStream
 import java.io.DataInput
-import java.io.PrintStream
-import java.io.PrintWriter
 import java.util.function.Function
 import kotlin.jvm.java
 
@@ -19,6 +13,9 @@ interface SingleValueInput {
 
     fun readInt(): Int
 
+    /**
+     * See [SingleValueOutput.writeVarInt]
+     */
     fun readVarInt(): Int = readInt()
 
     fun readLong(): Long

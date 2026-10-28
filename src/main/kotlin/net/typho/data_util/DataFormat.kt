@@ -1,11 +1,40 @@
 package net.typho.data_util
 
 interface DataFormat<V> {
-    fun read(input: SerializedData): DataResult<V>
+    fun read(input: SerializedData): V
+
+    fun createInput(data: V): SingleValueInput
 
     fun write(data: V): SerializedData
 
+    fun createOutput(): SingleValueOutput.WithResult<V>
+
     companion object {
+        /**
+         * Checks if a map key is valid (according to .xml and .properties, plus no periods because of .properties object serialization).
+         *
+         * Valid keys can contain characters `A-Z`, `a-z`, and `_`, and can contain `0-9` and `-` after the first character.
+         * Valid keys cannot be empty nor contain whitespaces.
+         */
+        @JvmStatic
+        fun isValidKey(key: String): Boolean {
+            if (key.isEmpty()) {
+                return false
+            }
+
+            key.forEachIndexed { index, char ->
+                if (!(char in 'A'..'Z' || char in 'a'..'z' || char == '_')) {
+                    return false
+                }
+
+                if (index > 0 && !(char in '0'..'9' || char == '-')) {
+                    return false
+                }
+            }
+
+            return true
+        }
+
         // TODO modernize
         @JvmStatic
         fun readEscapeSequences(line: (() -> Int)?, text: String): String {

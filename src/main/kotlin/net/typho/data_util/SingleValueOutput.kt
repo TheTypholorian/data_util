@@ -1,8 +1,5 @@
 package net.typho.data_util
 
-import net.typho.data_util.impl.xml.XMLNode
-import net.typho.data_util.impl.xml.XMLElement
-import net.typho.data_util.impl.xml.XMLText
 import java.io.DataOutput
 import java.util.function.BiConsumer
 import java.util.function.Consumer
@@ -17,6 +14,24 @@ interface SingleValueOutput {
 
     fun writeInt(v: Int)
 
+    /**
+     * Write a variable length int.
+     *
+     * This acts as [writeInt] for all text-based formats, but byte-based formats will write the minimum bytes needed to store the value.
+     *
+     * Note that the default byte implementation for this method will write at most **5 bytes** as opposed to the usual 4, since one bit per byte is needed to signal if to continue reading.
+     *
+     * Max values per bytes written:
+     *
+     * | Bytes | Normal | Variable-length |
+     * |---|---|---|
+     * | 1 | 256 | 128 |
+     * | 2 | 65,536 | 16,384 |
+     * | 3 | 16,777,216 | 2,097,152 |
+     * | 4 | 4,294,967,296 | 268,435,456 |
+     *
+     * See [SingleValueOutput.Companion.writeVarInt] for the default implementation
+     */
     fun writeVarInt(v: Int) = writeInt(v)
 
     fun writeLong(v: Long)
@@ -35,9 +50,14 @@ interface SingleValueOutput {
 
     fun writeStaticMap(keys: List<String>): SequentialOutput
 
+    // TODO
     fun writeVersion(key: String): SingleValueOutput
 
     fun <T> writeOptional(v: T?, ifPresent: DataWriter<T>)
+
+    interface WithResult<R> : SingleValueOutput {
+        fun finish(): R
+    }
 
     companion object {
         @JvmStatic
