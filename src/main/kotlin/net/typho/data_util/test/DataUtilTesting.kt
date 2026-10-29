@@ -6,6 +6,7 @@ import net.typho.data_util.codec.Codec
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
 import net.typho.data_util.json.JsonFormat
+import net.typho.data_util.xml.XMLFormat
 
 object TestCodecs {
     val STRING_CODEC = object : Codec<String> {

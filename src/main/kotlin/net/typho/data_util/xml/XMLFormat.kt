@@ -1,4 +1,4 @@
-package net.typho.data_util.impl.xml
+package net.typho.data_util.xml
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.ParsingIterator
@@ -12,13 +12,11 @@ open class XMLFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : DataFormat<XMLDocument> {
-    override fun createInput(data: XMLDocument): ValueInput {
-        TODO("Not yet implemented")
-    }
+    override fun createInput(data: XMLDocument) = XMLValueInput(data.root)
 
-    override fun createOutput(): ValueOutput.WithResult<XMLDocument> {
-        TODO("Not yet implemented")
-    }
+    override fun createOutput() = XMLDocumentValueOutput()
+
+    fun createOutput(metadata: MutableList<XMLStubElement> = mutableListOf()) = XMLDocumentValueOutput(metadata)
 
     override fun read(input: SerializedData): XMLDocument {
         val input = ParsingIterator(input.asString(), true)
@@ -169,7 +167,7 @@ open class XMLFormat(
                     val char = input.next()
 
                     if (char == '<') {
-                        if (text.isNotEmpty()) {
+                        if (text.isNotBlank()) {
                             element.children.add(XMLText(readEntities(text.toString(), { input.error("Undefined entity &$it;") })))
                             text.clear()
                         }

@@ -1,4 +1,4 @@
-package net.typho.data_util.impl.xml
+package net.typho.data_util.xml
 
 import java.util.function.Consumer
 

@@ -1,4 +1,4 @@
-package net.typho.data_util.impl.xml
+package net.typho.data_util.xml
 
 open class XMLStubElement(
     @JvmField
