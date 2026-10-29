@@ -33,9 +33,7 @@ data class OtherTestData(
 }
 
 data class TestData(
-    @FieldConfig("""
-        codec = TestCodecs.STRING_CODEC
-    """)
+    //@FieldConfig("TestCodecs.STRING_CODEC")
     val a: String,
     @FieldConfig("""
         range = 123..123
@@ -46,7 +44,14 @@ data class TestData(
         default = 10203f
     """)
     val c: Float,
-    val d: Boolean?,
+    @FieldConfig("""
+        default = true
+        codec = codec.map({ !it }, { it })
+    """)
+    val d: Boolean,
+    @FieldConfig("""
+        codec = OtherTestData.CODEC.map({ OtherTestData(it.name + "_test") }, { it })
+    """)
     val other: OtherTestData?
 ) {
     companion object {
@@ -63,7 +68,7 @@ fun main(args: Array<String>) {
         allowComments = true,
         prettyPrint = true
     )
-    val test = TestData("hello", 123, 456.789f, null, null)
+    val test = TestData("hello", 123, 456.789f, true, null)
     val json = format.write(TestData.CODEC, test)
     println(json)
     println(format.read(TestData.CODEC, json))

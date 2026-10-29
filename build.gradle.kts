@@ -12,7 +12,9 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    testImplementation("com.google.code.gson:gson:2.14.0")
+    implementation(kotlin("compiler-embeddable"))
+    implementation(kotlin("scripting-jvm"))
+    implementation(kotlin("scripting-jvm-host"))
 }
 
 kotlin {

@@ -4,17 +4,12 @@ import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.DataWriter
-import net.typho.data_util.anno.FieldCodec
-import net.typho.data_util.anno.FieldDefault
-import net.typho.data_util.anno.FieldRange
-import org.jetbrains.annotations.Nullable
+import net.typho.data_util.codec.reflect.FieldConfigScript
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-import java.lang.reflect.ParameterizedType
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
-import kotlin.reflect.jvm.kotlinProperty
 
 interface Codec<T> : DataReader<T>, DataWriter<T> {
     companion object {
@@ -127,7 +122,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 Boolean::class.java, Boolean::class.javaObjectType -> BOOL as Codec<T>
                 Byte::class.java, Byte::class.javaObjectType -> BYTE as Codec<T>
                 Short::class.java, Short::class.javaObjectType -> SHORT as Codec<T>
-                Int::class.java, Int::class.javaObjectType -> (INT) as Codec<T>
+                Int::class.java, Int::class.javaObjectType -> INT as Codec<T>
                 Long::class.java, Long::class.javaObjectType -> LONG as Codec<T>
                 Float::class.java, Float::class.javaObjectType -> FLOAT as Codec<T>
                 Double::class.java, Double::class.javaObjectType -> DOUBLE as Codec<T>
@@ -138,150 +133,12 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
-        fun getClassCodec(owner: Class<*>, type: Class<*>): Codec<*>? {
-            var codec = getPrimitiveCodec(type)
-
-            if (codec == null) {
-                try {
-                    val codecField = type.getDeclaredField("CODEC")
-                    codecField.isAccessible = true
-                    codec = codecField.get(null) as Codec<*>
-                } catch (_: NoSuchFieldException) {
-                }
-            }
-
-            return codec
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        @JvmStatic
         fun getFieldCodec(owner: Class<*>, field: Field): Codec<*> {
-            var codec: Codec<*>? = null
+            val guess = getPrimitiveCodec(field.type)
+            FieldConfigScript.compile(owner, field, guess)?.let { return it }
+            guess?.let { return it }
 
-            for (anno in field.annotations) {
-                if (anno is FieldCodec) {
-                    try {
-                        var target = anno.owner.java
-
-                        if (target == Any::class.java) {
-                            target = field.type
-                        }
-
-                        val codecField = target.getDeclaredField(anno.value)
-
-                        if (!Modifier.isStatic(codecField.modifiers)) {
-                            throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} has @FieldCodec pointing to a non-static codec field")
-                        }
-
-                        if (!Codec::class.java.isAssignableFrom(codecField.type)) {
-                            throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} has @FieldCodec pointing to a field that isn't a codec")
-                        }
-
-                        codecField.isAccessible = true
-
-                        codec = codecField.get(null) as Codec<*>
-                        break
-                    } catch (_: NoSuchFieldException) {
-                        throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} has @FieldCodec pointing to a nonexistent field")
-                    }
-                }
-            }
-
-            codec = codec ?: getClassCodec(owner, field.type)
-
-            if (codec == null) {
-                if (List::class.java.isAssignableFrom(field.type) && field.type != List::class.java) {
-                    throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} extends List but doesn't provide a codec, automatic list codecs are only for raw List types.")
-                }
-
-                var type = field.genericType as ParameterizedType
-                var depth = 0
-
-                while (type.rawType == List::class.java) {
-                    depth++
-
-                    val arg = type.actualTypeArguments[0]
-
-                    if (arg is ParameterizedType) {
-                        type = arg
-                    } else if (arg is Class<*>) {
-                        codec = getClassCodec(owner, arg) ?: throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} is a List and its deep type has no automatic codec")
-                        break
-                    }
-                }
-
-                if (depth > 0 && codec != null) {
-                    repeat(depth) {
-                        codec = codec!!.listOf()
-                    }
-                }
-            }
-
-            var codec1 = codec ?: throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} is missing a codec")
-
-            for (anno in field.annotations) {
-                if (anno is FieldRange) {
-                    if (!(Number::class.java.isAssignableFrom(field.type) || NUMBER_CLASSES.contains(field.type))) {
-                        throw IllegalStateException("Field ${owner.name} ${field.type.name} ${field.name} has @FieldRange but isn't a number field")
-                    }
-
-                    codec1 = codec1.withCondition(
-                        {
-                            val n = (it as Number).toDouble()
-                            n >= anno.min && n <= anno.max
-                        },
-                        { "$it must be between ${anno.min} and ${anno.max}" },
-                        "range [${anno.min}, ${anno.max}]"
-                    )
-                    break
-                }
-            }
-
-            val default = field.annotations.filterIsInstance<FieldDefault>().firstOrNull()?.let { anno ->
-                var target = anno.owner.java
-
-                if (target == Any::class.java) {
-                    when (field.type) {
-                        Boolean::class.java, Boolean::class.javaObjectType -> return@let anno.value.toBoolean()
-                        Byte::class.java, Byte::class.javaObjectType -> return@let anno.value.toByte()
-                        Short::class.java, Short::class.javaObjectType -> return@let anno.value.toShort()
-                        Int::class.java, Int::class.javaObjectType -> return@let anno.value.toInt()
-                        Long::class.java, Long::class.javaObjectType -> return@let anno.value.toLong()
-                        Float::class.java, Float::class.javaObjectType -> return@let anno.value.toFloat()
-                        Double::class.java, Double::class.javaObjectType -> return@let anno.value.toDouble()
-                        String::class.java -> return@let anno.value
-                        else -> target = field.type
-                    }
-                }
-
-                try {
-                    val defaultField = target.getDeclaredField(anno.value)
-
-                    if (!Modifier.isStatic(defaultField.modifiers)) {
-                        throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a non-static field")
-                    }
-
-                    if (!field.type.isAssignableFrom(defaultField.type)) {
-                        throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a field that isn't the same type as the field")
-                    }
-
-                    defaultField.isAccessible = true
-
-                    return@let defaultField.get(null)
-                } catch (e: NoSuchFieldException) {
-                    throw IllegalStateException("Field ${target.name} ${field.type.name} ${field.name} has @FieldDefault pointing to a nonexistent field")
-                }
-            }
-
-            fun <T> generics(codec: Codec<T>): Codec<*> {
-                return if (default != null || field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true) {
-                    if (default == null) codec.optional() else codec.optional(default as T)
-                } else {
-                    codec
-                }
-            }
-
-            return generics(codec1)
+            throw IllegalStateException("Field ${owner.name}.${field.name} does not have a codec, use @FieldConfig() to set the codec (via a kotlin script)")
         }
 
         @JvmOverloads
@@ -409,9 +266,23 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 }
             }
         }
+
+        @JvmStatic
+        fun <T : Comparable<T>> Codec<T>.withRange(range: ClosedRange<T>) = withCondition { it in range }
+
+        @JvmStatic
+        fun <T : Comparable<T>> Codec<T>.withRange(min: T, max: T) = withRange(min..max)
+
+        @JvmStatic
+        fun <T : Comparable<T>> Codec<T>.withMin(min: T) = withCondition { it >= min }
+
+        @JvmStatic
+        fun <T : Comparable<T>> Codec<T>.withMax(max: T) = withCondition { it <= max }
     }
 
-    fun withCondition(condition: Predicate<T>, error: Function<T, String>, name: String): Codec<T> {
+    fun withCondition(condition: Predicate<T>) = withCondition(condition) { "Value $it does not match condition $condition" }
+
+    fun withCondition(condition: Predicate<T>, error: Function<T, String>): Codec<T> {
         val parent = this
         return object : Codec<T> {
             override fun read(input: ValueInput): T {
@@ -433,7 +304,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
 
             override fun toString(): String {
-                return "$parent, with condition $name"
+                return "$parent, with condition $condition"
             }
         }
     }
