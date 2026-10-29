@@ -4,12 +4,20 @@ import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriteException
 import net.typho.data_util.DataWriter
-import net.typho.data_util.codec.reflect.FieldConfigScript
+import net.typho.data_util.codec.reflect.FieldCodecScript
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
+
+fun <T : Comparable<T>> Codec<T>.withRange(range: ClosedRange<T>) = withCondition { it in range }
+
+fun <T : Comparable<T>> Codec<T>.withRange(min: T, max: T) = withRange(min..max)
+
+fun <T : Comparable<T>> Codec<T>.withMin(min: T) = withCondition { it >= min }
+
+fun <T : Comparable<T>> Codec<T>.withMax(max: T) = withCondition { it <= max }
 
 interface Codec<T> : DataReader<T>, DataWriter<T> {
     companion object {
@@ -135,10 +143,10 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         @JvmStatic
         fun getFieldCodec(owner: Class<*>, field: Field): Codec<*> {
             val guess = getPrimitiveCodec(field.type)
-            FieldConfigScript.compile(owner, field, guess)?.let { return it }
+            FieldCodecScript.compile(owner, field)?.let { return it }
             guess?.let { return it }
 
-            throw IllegalStateException("Field ${owner.name}.${field.name} does not have a codec, use @FieldConfig() to set the codec (via a kotlin script)")
+            throw IllegalStateException("Field ${owner.name}.${field.name} does not have a codec, use @FieldCodec() to set the codec (via a kotlin script)")
         }
 
         @JvmOverloads
@@ -200,7 +208,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
          */
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
-        fun <T> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): Codec<T> {
+        fun <T> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): MapCodec<T> {
             data class Entry(
                 @JvmField
                 val field: Field,
@@ -266,18 +274,6 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 }
             }
         }
-
-        @JvmStatic
-        fun <T : Comparable<T>> Codec<T>.withRange(range: ClosedRange<T>) = withCondition { it in range }
-
-        @JvmStatic
-        fun <T : Comparable<T>> Codec<T>.withRange(min: T, max: T) = withRange(min..max)
-
-        @JvmStatic
-        fun <T : Comparable<T>> Codec<T>.withMin(min: T) = withCondition { it >= min }
-
-        @JvmStatic
-        fun <T : Comparable<T>> Codec<T>.withMax(max: T) = withCondition { it <= max }
     }
 
     fun withCondition(condition: Predicate<T>) = withCondition(condition) { "Value $it does not match condition $condition" }

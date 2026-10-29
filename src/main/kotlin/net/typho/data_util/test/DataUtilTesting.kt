@@ -1,7 +1,7 @@
 package net.typho.data_util.test
 
 import net.typho.data_util.SerializedData
-import net.typho.data_util.anno.FieldConfig
+import net.typho.data_util.anno.FieldCodec
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
@@ -33,26 +33,16 @@ data class OtherTestData(
 }
 
 data class TestData(
-    //@FieldConfig("TestCodecs.STRING_CODEC")
-    val a: String,
-    @FieldConfig("""
-        range = 123..123
-        default = 123
-    """)
-    val b: Int,
-    @FieldConfig("""
-        default = 10203f
-    """)
-    val c: Float,
-    @FieldConfig("""
-        default = true
-        codec = codec.map({ !it }, { it })
-    """)
-    val d: Boolean,
-    @FieldConfig("""
-        codec = OtherTestData.CODEC.map({ OtherTestData(it.name + "_test") }, { it })
-    """)
-    val other: OtherTestData?
+    @FieldCodec("TestCodecs.STRING_CODEC.optional()")
+    var a: String?,
+    @FieldCodec("Codec.INT.withRange(123..123).optional(123)")
+    var b: Int,
+    @FieldCodec("Codec.FLOAT.optional(10203f)")
+    var c: Float,
+    @FieldCodec("Codec.BOOL.map({ !it }, { it }).optional(true)")
+    var d: Boolean,
+    @FieldCodec("OtherTestData.CODEC.map({ OtherTestData(it.name + \"_test\") }, { it }).optional()")
+    var other: OtherTestData?
 ) {
     companion object {
         val CODEC = Codec.reflect(TestData::class.java)
@@ -70,7 +60,7 @@ fun main(args: Array<String>) {
     )
     val test = TestData("hello", 123, 456.789f, true, null)
     val json = format.write(TestData.CODEC, test)
-    println(json)
+    println(json.asString())
     println(format.read(TestData.CODEC, json))
     println(format.read(TestData.CODEC, SerializedData("""
         {
