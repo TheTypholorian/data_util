@@ -1,6 +1,5 @@
 package net.typho.data_util.xml
 
-import net.typho.data_util.DataWriteException
 import net.typho.data_util.DataWriter
 import net.typho.data_util.codec.ValueOutput
 import java.util.function.Consumer
@@ -14,7 +13,7 @@ class XMLValueOutput<V : XMLNode> : ValueOutput.WithResult<V> {
 
     override fun finish(): V {
         if (!written) {
-            throw DataWriteException("Value has not been written yet")
+            error("Value has not been written yet")
         }
 
         return value as V
@@ -22,7 +21,7 @@ class XMLValueOutput<V : XMLNode> : ValueOutput.WithResult<V> {
 
     private fun write(value: XMLNode) {
         if (written) {
-            throw DataWriteException("Value has already been written")
+            error("Value has already been written")
         }
 
         this.value = value as V

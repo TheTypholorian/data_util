@@ -1,7 +1,10 @@
 package net.typho.data_util.codec
 
-import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
+import net.typho.data_util.error.DataReadException
+import net.typho.data_util.error.ErrorStack
+import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 /**
  * All methods can only be called once per instance (except [readStaticList] and [readStaticMap])
@@ -27,6 +30,10 @@ interface ValueInput {
      * would have [ValueType.ARRAY], so you know to read it as a list.
      */
     val type: ValueType?
+    val errorStack: ErrorStack?
+        get() = null
+
+    fun error(message: String): Nothing = throw DataReadException(message, errorStack)
 
     fun readBoolean(): Boolean
 
@@ -46,32 +53,32 @@ interface ValueInput {
 
     fun <E : Enum<E>> readEnum(cls: Class<E>, ignoreCase: Boolean = true): E {
         val name = readString()
-        return cls.enumConstants.firstOrNull { it.name.equals(name, ignoreCase = ignoreCase) } ?: throw DataReadException("Enum ${cls.name} does not have constant '$name', options: ${cls.enumConstants}")
+        return cls.enumConstants.firstOrNull { it.name.equals(name, ignoreCase = ignoreCase) } ?: error("Enum ${cls.name} does not have constant '$name', options: ${cls.enumConstants}")
     }
 
     /**
      * See [ValueOutput.writeDynamicList]
      */
-    fun readDynamicList(): Iterator<ValueInput>
+    fun readDynamicList(out: Consumer<ValueInput>)
 
     /**
      * See [ValueOutput.writeStaticList]
      */
-    fun readStaticList(size: Int): Iterator<ValueInput>
+    fun readStaticList(size: Int, out: Consumer<ValueInput>)
 
     /**
      * See [ValueOutput.writeDynamicMap]
      */
-    fun readDynamicMap(): Iterator<Pair<String, ValueInput>>
+    fun readDynamicMap(out: BiConsumer<String, ValueInput>)
 
     /**
      * See [ValueOutput.writeStaticMap]
      *
      * Can be called multiple times (ex. for reading a version number, though that should be done with [Codec.versioned]).
      *
-     * The returned iterator will have the same order as [keys].
+     * The consumer will be called in the same order as [keys].
      */
-    fun readStaticMap(keys: List<String>): Iterator<ValueInput>
+    fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>)
 
     fun <V> readOptional(ifPresent: DataReader<V>): V?
 }

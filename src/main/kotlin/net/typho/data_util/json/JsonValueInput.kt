@@ -1,12 +1,16 @@
 package net.typho.data_util.json
 
-import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueType
+import net.typho.data_util.error.ErrorStack
+import net.typho.data_util.error.push
+import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 class JsonValueInput(
-    private var value: Any?
+    private var value: Any?,
+    override val errorStack: ErrorStack?
 ): ValueInput {
     private var read = false
 
@@ -21,12 +25,12 @@ class JsonValueInput(
     }
 
     private fun castError(expected: String): Nothing {
-        throw DataReadException("Expected $expected, got ${type.name.lowercase()}")
+        error("Expected $expected, got ${type.name.lowercase()}")
     }
 
     private inline fun <reified V> peek(expected: String): V {
         if (read) {
-            throw DataReadException("Value input has already been read")
+            error("Value input has already been read")
         }
 
         return value as? V ?: castError(expected)
@@ -56,33 +60,64 @@ class JsonValueInput(
 
     fun readList() = read<List<*>>("list")
 
-    override fun readDynamicList() = readList()
-        .map { JsonValueInput(it) }
-        .iterator()
+    override fun readDynamicList(out: Consumer<ValueInput>) {
+        errorStack.push("Dynamic list") {
+            val list = readList()
+            list.forEachIndexed { index, value ->
+                errorStack.push("Entry #${index + 1}") {
+                    out.accept(JsonValueInput(value, errorStack))
+                }
+            }
+        }
+    }
 
-    override fun readStaticList(size: Int) = readList()
-        .also { if (it.size != size) throw DataReadException("List must have $size elements, got ${it.size}") }
-        .map { JsonValueInput(it) }
-        .iterator()
+    override fun readStaticList(size: Int, out: Consumer<ValueInput>) {
+        errorStack.push("Static list ($size entries)") {
+            val list = readList()
+
+            if (list.size != size) {
+                error("List must have $size elements, got ${list.size}")
+            }
+
+            list.forEachIndexed { index, value ->
+                errorStack.push("Entry #${index + 1}") {
+                    out.accept(JsonValueInput(value, errorStack))
+                }
+            }
+        }
+    }
 
     fun readMap() = read<Map<String, *>>("map")
 
-    override fun readDynamicMap() = readMap()
-        .entries
-        .map { (key, value) -> key to JsonValueInput(value) }
-        .iterator()
+    override fun readDynamicMap(out: BiConsumer<String, ValueInput>) {
+        errorStack.push("Dynamic map") {
+            readMap().forEach { (key, value) ->
+                errorStack.push("Key '$key'") {
+                    out.accept(key, JsonValueInput(value, errorStack))
+                }
+            }
+        }
+    }
 
-    override fun readStaticMap(keys: List<String>): Iterator<ValueInput> {
-        val map = readMap()
-        return keys.map { key -> JsonValueInput(map[key]) }.iterator()
+    override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
+        errorStack.push("Static map") {
+            val map = readMap()
+            keys.forEach { key ->
+                errorStack.push("Key '$key'") {
+                    out.accept(JsonValueInput(map[key], errorStack))
+                }
+            }
+        }
     }
 
     override fun <V> readOptional(ifPresent: DataReader<V>): V? {
-        return if (value == null) {
-            read = true
-            null
-        } else {
-            ifPresent.read(this)
+        return errorStack.push("Optional value (ifPresent $ifPresent)") {
+            if (value == null) {
+                read = true
+                null
+            } else {
+                ifPresent.read(this)
+            }
         }
     }
 }

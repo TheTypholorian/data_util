@@ -1,5 +1,5 @@
 abc = 123
 
-[object]
-exampleArray = [ 1, 2, 3, "4", [ 5 ] ]
+[obj]
+exampleArray = [ 1, 2, 3, 4, 5 ]
 otherField = "test"

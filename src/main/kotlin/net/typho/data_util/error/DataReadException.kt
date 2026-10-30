@@ -1,4 +1,4 @@
-package net.typho.data_util
+package net.typho.data_util.error
 
 class DataReadException : RuntimeException {
     constructor() : super()
@@ -12,6 +12,8 @@ class DataReadException : RuntimeException {
     constructor(message: String, cause: Throwable, enableSuppression: Boolean, writableStackTrace: Boolean) : super(message, cause, enableSuppression, writableStackTrace)
 
     constructor(message: String, input: String, index: Int) : this("$message (${lineAndColumn(input, index)})")
+
+    constructor(message: String, stack: ErrorStack?) : this(if (stack == null || stack.isEmpty()) message else "$message\n$stack")
 
     companion object {
         @JvmStatic

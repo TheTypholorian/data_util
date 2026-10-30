@@ -3,8 +3,6 @@ package net.typho.data_util.xml
 import net.typho.data_util.DataFormat
 import net.typho.data_util.ParsingIterator
 import net.typho.data_util.SerializedData
-import net.typho.data_util.codec.ValueInput
-import net.typho.data_util.codec.ValueOutput
 
 open class XMLFormat(
     @JvmField
@@ -223,6 +221,10 @@ open class XMLFormat(
     override fun write(data: XMLDocument) = SerializedData(data.toXMLString(prettyPrint))
 
     fun write(element: XMLElement) = element.toXMLString(prettyPrint)
+
+    override fun toString(): String {
+        return "XMLFormat(readComments=$readComments, prettyPrint=$prettyPrint)"
+    }
 
     companion object Default : XMLFormat() {
         @JvmField

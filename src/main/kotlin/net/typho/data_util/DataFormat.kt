@@ -3,19 +3,32 @@ package net.typho.data_util
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
+import net.typho.data_util.error.DataReadException
 
 interface DataFormat<V> {
     fun read(input: SerializedData): V
 
     fun createInput(data: V): ValueInput
 
-    fun <T> read(codec: Codec<T>, input: SerializedData): T = codec.read(createInput(read(input)))
+    fun <T> read(codec: Codec<T>, input: SerializedData): T {
+        val input = createInput(read(input))
+        input.errorStack?.codec = codec
+        return codec.read(input)
+    }
 
     fun write(data: V): SerializedData
 
     fun createOutput(): ValueOutput.WithResult<V>
 
-    fun <T> write(codec: Codec<T>, value: T): SerializedData = write(createOutput().also { codec.write(it, value) }.finish())
+    fun <T> write(codec: Codec<T>, value: T): SerializedData {
+        val output = createOutput()
+        output.errorStack?.let {
+            it.codec = codec
+            it.valueBeingSerialized = value
+        }
+        codec.write(output, value)
+        return write(output.finish())
+    }
 
     companion object {
         /**

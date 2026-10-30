@@ -1,8 +1,6 @@
 package net.typho.data_util.codec
 
-import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
-import net.typho.data_util.DataWriteException
 import net.typho.data_util.DataWriter
 import net.typho.data_util.codec.reflect.FieldCodecScript
 import java.lang.reflect.Field
@@ -67,19 +65,11 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         fun <E : Enum<E>> enumCodec(cls: Class<E>, caseSensitive: Boolean = false): Codec<E> {
             return object : Codec<E> {
                 override fun read(input: ValueInput): E {
-                    try {
-                        return input.readEnum(cls, caseSensitive)
-                    } catch (e: RuntimeException) {
-                        throw DataReadException("Error while reading enum entry of class $cls", e, true, false)
-                    }
+                    return input.readEnum(cls, caseSensitive)
                 }
 
                 override fun write(output: ValueOutput, value: E) {
-                    try {
-                        output.writeEnum(value)
-                    } catch (e: RuntimeException) {
-                        throw DataWriteException("Error while writing enum entry of class $cls", e, true, false)
-                    }
+                    output.writeEnum(value)
                 }
 
                 override fun toString(): String {
@@ -103,11 +93,11 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             "Dynamic Map Codec with value codec $valueCodec",
             { input ->
                 val map = mutableMapOf<K, V>()
-                input.readDynamicMap().forEach { (key, value) ->
+                input.readDynamicMap { key, value ->
                     val key = readKey.apply(key)
 
                     if (errorOnDuplicateKeys && map.containsKey(key)) {
-                        throw DataReadException("Duplicate key in dynamic map '$key'")
+                        input.error("Duplicate key in dynamic map '$key'")
                     }
 
                     map[key] = valueCodec.read(value)
@@ -175,6 +165,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
         )
 
+        @Suppress("UNCHECKED_CAST")
         @JvmOverloads
         @JvmStatic
         fun <V, T> versioned(
@@ -185,8 +176,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         ) = simple(
             "Versioned Codec with version codec $versionCodec, version getter $versionGetter, version key $versionKey",
             { input ->
-                val version = versionCodec.read(input.readStaticMap(listOf(versionKey)).next())
-                dataCodec.apply(version).read(input)
+                var value: T? = null
+
+                input.readStaticMap(listOf(versionKey)) {
+                    value = dataCodec.apply(versionCodec.read(it)).read(input)
+                }
+
+                value as T
             },
             { output, value ->
                 val version = versionGetter.apply(value)
@@ -243,30 +239,23 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             return object : MapCodec<T> {
                 override val keys = entries.map { it.field.name }
 
-                override fun read(input: Iterator<ValueInput>): T {
-                    val args = entries.map {
-                        try {
-                            it.codec.read(input.next())
-                        } catch (e: RuntimeException) {
-                            throw DataReadException("Error while reading map entry ${it.field.name}", e, true, false)
-                        }
+                override fun read(input: ValueInput): T {
+                    val args = mutableListOf<Any?>()
+                    val entries = entries.iterator()
+                    input.readStaticMap(keys) { input ->
+                        entries.next().codec.read(input)
                     }
                     return constructor.newInstance(*args.toTypedArray()) as T
                 }
 
                 fun <V> write(field: Field, codec: Codec<V>, value: T): Consumer<ValueOutput> {
-                    try {
-                        val value = field.get(value) as V
-                        return { codec.write(it, value) }
-                    } catch (e: RuntimeException) {
-                        throw DataWriteException("Error while writing map entry ${field.name}", e, true, false)
-                    }
+                    return { codec.write(it, field.get(value) as V) }
                 }
 
-                override fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>> {
-                    return entries.map {
+                override fun write(output: ValueOutput, value: T) {
+                    output.writeStaticMap(entries.map {
                         it.field.name to write(it.field, it.codec, value)
-                    }.iterator()
+                    }.iterator())
                 }
 
                 override fun toString(): String {
@@ -285,7 +274,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 val value = parent.read(input)
 
                 if (!condition.test(value)) {
-                    throw DataReadException(error.apply(value))
+                    input.error(error.apply(value))
                 }
 
                 return value
@@ -293,7 +282,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
             override fun write(output: ValueOutput, value: T) {
                 if (!condition.test(value)) {
-                    throw DataWriteException(error.apply(value))
+                    output.error(error.apply(value))
                 }
 
                 parent.write(output, value)
@@ -343,7 +332,9 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         val parent = this
         return object : Codec<List<T>> {
             override fun read(input: ValueInput): List<T> {
-                return input.readDynamicList().asSequence().map { parent.read(it) }.toList()
+                val list = mutableListOf<T>()
+                input.readDynamicList { list.add(parent.read(it)) }
+                return list
             }
 
             override fun write(output: ValueOutput, value: List<T>) {
@@ -357,18 +348,20 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
     }
 
     /**
-     * More optimized for packets than doing a normal [listOf] plus checking the size.
+     * More optimized for packets than doing a normal [listOf] then checking the size.
      */
     fun listOf(size: Int): Codec<List<T>> {
         val parent = this
         return object : Codec<List<T>> {
             override fun read(input: ValueInput): List<T> {
-                return input.readStaticList(size).asSequence().map { parent.read(it) }.toList()
+                val list = mutableListOf<T>()
+                input.readStaticList(size) { list.add(parent.read(it)) }
+                return list
             }
 
             override fun write(output: ValueOutput, value: List<T>) {
                 if (value.size != size) {
-                    throw DataReadException("List must have $size elements, instead has ${value.size}")
+                    output.error("List must have $size elements, instead has ${value.size}")
                 }
 
                 output.writeStaticList(value.map { value -> Consumer<ValueOutput> { output -> parent.write(output, value) } }.iterator())

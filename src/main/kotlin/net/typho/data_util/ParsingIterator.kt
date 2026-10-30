@@ -1,8 +1,6 @@
 package net.typho.data_util
 
-import sun.text.normalizer.UTF16.append
-import java.util.function.Predicate
-import kotlin.text.Typography.section
+import net.typho.data_util.error.DataReadException
 
 open class ParsingIterator @JvmOverloads constructor(
     @JvmField

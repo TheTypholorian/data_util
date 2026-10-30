@@ -1,10 +1,10 @@
 package net.typho.data_util.impl
 
 import net.typho.data_util.DataFormat
-import net.typho.data_util.DataReadException
 import net.typho.data_util.SerializedData
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
+import net.typho.data_util.error.DataReadException
 
 open class PropertiesFormat(
     @JvmField
@@ -75,6 +75,10 @@ open class PropertiesFormat(
         }
 
         return SerializedData(builder.toString())
+    }
+
+    override fun toString(): String {
+        return "PropertiesFormat(delimiterToWrite=$delimiterToWrite)"
     }
 
     companion object Default : PropertiesFormat()

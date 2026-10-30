@@ -1,15 +1,13 @@
 <root>
     <abc>123</abc>
-    <object>
+    <obj>
         <exampleArray>
             <item>1</item>
             <item>2</item>
             <item>3</item>
             <item>4</item>
-            <item>
-                <item>5</item>
-            </item>
+            <item>5</item>
         </exampleArray>
         <otherField>test</otherField>
-    </object>
+    </obj>
 </root>

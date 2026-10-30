@@ -1,7 +1,5 @@
 package net.typho.data_util.codec
 
-import net.typho.data_util.DataReadException
-import net.typho.data_util.DataWriteException
 import sun.misc.Unsafe
 import java.lang.reflect.Modifier
 import java.util.function.BiConsumer
@@ -22,36 +20,15 @@ interface MapCodec<T> : Codec<T> {
         val setter: BiConsumer<T, V>
     ) {
         fun read(value: T, input: ValueInput) {
-            try {
-                setter.accept(value, codec.read(input))
-            } catch (e: RuntimeException) {
-                throw DataReadException("Error while reading map entry $key", e, true, false)
-            }
+            setter.accept(value, codec.read(input))
         }
 
         fun write(value: T): Consumer<ValueOutput> {
-            try {
-                val value = getter.apply(value)
-                return { codec.write(it, value) }
-            } catch (e: RuntimeException) {
-                throw DataWriteException("Error while writing map entry $key", e, true, false)
-            }
+            return { codec.write(it, getter.apply(value)) }
         }
     }
 
     val keys: List<String>
-
-    fun read(input: Iterator<ValueInput>): T
-
-    override fun read(input: ValueInput): T {
-        return read(input.readStaticMap(keys))
-    }
-
-    fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>>
-
-    override fun write(output: ValueOutput, value: T) {
-        output.writeStaticMap(write(value))
-    }
 
     class Builder<T>(
         @JvmField
@@ -165,18 +142,19 @@ interface MapCodec<T> : Codec<T> {
         ) = object : MapCodec<T> {
             override val keys = entries.map { it.key }
 
-            override fun read(input: Iterator<ValueInput>): T {
+            override fun read(input: ValueInput): T {
                 val value = constructor.get()
+                val entries = entries.iterator()
 
-                for (entry in entries) {
-                    entry.read(value, input.next())
+                input.readStaticMap(keys) { input ->
+                    entries.next().read(value, input)
                 }
 
                 return value
             }
 
-            override fun write(value: T): Iterator<Pair<String, Consumer<ValueOutput>>> {
-                return entries.map { it.key to it.write(value) }.iterator()
+            override fun write(output: ValueOutput, value: T) {
+                output.writeStaticMap(entries.map { it.key to it.write(value) }.iterator())
             }
 
             override fun toString(): String {

@@ -1,9 +1,10 @@
 package net.typho.data_util.xml
 
-import net.typho.data_util.DataReadException
 import net.typho.data_util.DataReader
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueType
+import java.util.function.BiConsumer
+import java.util.function.Consumer
 
 class XMLValueInput(
     private val value: XMLNode
@@ -14,12 +15,12 @@ class XMLValueInput(
         get() = null
 
     private fun castError(expected: String): Nothing {
-        throw DataReadException("Expected $expected, got ${value.javaClass.name}")
+        error("Expected $expected, got ${value.javaClass.name}")
     }
 
     private inline fun <reified V> peek(expected: String): V {
         if (read) {
-            throw DataReadException("Value input has already been read")
+            error("Value input has already been read")
         }
 
         return value as? V ?: castError(expected)
@@ -47,26 +48,32 @@ class XMLValueInput(
 
     override fun readString() = read<XMLText>("text").text
 
-    override fun readDynamicList() = read<XMLElement>("list")
-        .children
-        .map { XMLValueInput((it as XMLElement).children.single()) }
-        .iterator()
+    override fun readDynamicList(out: Consumer<ValueInput>) {
+        read<XMLElement>("list")
+            .children
+            .forEach {
+                out.accept(XMLValueInput((it as XMLElement).children.single()))
+            }
+    }
 
-    override fun readStaticList(size: Int) = read<XMLElement>("list")
-        .children
-        .also { if (it.size != size) throw DataReadException("List must have $size elements, got ${it.size}") }
-        .map { XMLValueInput((it as XMLElement).children.single()) }
-        .iterator()
+    override fun readStaticList(size: Int, out: Consumer<ValueInput>) {
+        read<XMLElement>("list")
+            .children
+            .also { if (it.size != size) error("List must have $size elements, got ${it.size}") }
+            .forEach { out.accept(XMLValueInput((it as XMLElement).children.single())) }
+    }
 
-    override fun readDynamicMap() = read<XMLElement>("list")
-        .children
-        .map { (it as XMLElement).name to XMLValueInput(it.children.single()) }
-        .iterator()
+    override fun readDynamicMap(out: BiConsumer<String, ValueInput>) {
+        read<XMLElement>("list")
+            .children
+            .forEach { out.accept((it as XMLElement).name, XMLValueInput(it.children.single())) }
+    }
 
-    override fun readStaticMap(keys: List<String>) = read<XMLElement>("list")
-        .children
-        .map { XMLValueInput((it as XMLElement).children.single()) }
-        .iterator()
+    override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
+        read<XMLElement>("list")
+            .children
+            .forEach { out.accept(XMLValueInput((it as XMLElement).children.single())) }
+    }
 
     override fun <V> readOptional(ifPresent: DataReader<V>): V? {
         return if (value is XMLText && value.text == "null") {

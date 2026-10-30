@@ -1,6 +1,8 @@
 package net.typho.data_util.codec
 
 import net.typho.data_util.DataWriter
+import net.typho.data_util.error.DataWriteException
+import net.typho.data_util.error.ErrorStack
 import java.util.function.Consumer
 
 /**
@@ -15,6 +17,10 @@ interface ValueOutput {
      * Used by [Codec.multi].
      */
     val areTypesWritten: Boolean
+    val errorStack: ErrorStack?
+        get() = null
+
+    fun error(message: String): Nothing = throw DataWriteException(message, errorStack)
 
     fun writeBoolean(v: Boolean)
 
