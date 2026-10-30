@@ -102,10 +102,10 @@ class XMLValueInput(
                     val index = list.indexOfFirst { it.name == key }
 
                     if (index == -1) {
-                        error("Map does not contain key '$key'")
+                        out.accept(XMLValueInput(XMLText("null"), errorStack))
+                    } else {
+                        out.accept(XMLValueInput(list.removeAt(index).children.single(), errorStack))
                     }
-
-                    out.accept(XMLValueInput(list.removeAt(index).children.single(), errorStack))
                 }
             }
         }
