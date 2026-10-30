@@ -2,15 +2,19 @@ package net.typho.data_util.xml
 
 import net.typho.data_util.DataWriter
 import net.typho.data_util.codec.ValueOutput
+import net.typho.data_util.error.ErrorStack
 import java.util.function.Consumer
 
 class XMLDocumentValueOutput(
+    errorStack: ErrorStack?,
     @JvmField
     var metadata: MutableList<XMLStubElement> = mutableListOf()
 ) : ValueOutput.WithResult<XMLDocument> {
-    private val delegate = XMLValueOutput<XMLNode>()
+    private val delegate = XMLValueOutput<XMLNode>(errorStack)
     override val areTypesWritten: Boolean
         get() = delegate.areTypesWritten
+    override val errorStack: ErrorStack?
+        get() = delegate.errorStack
 
     override fun finish() = XMLDocument(delegate.finish().let { it as? XMLElement ?: XMLElement("root", children = mutableListOf(it)) }, metadata)
 

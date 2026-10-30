@@ -3,6 +3,7 @@ package net.typho.data_util.xml
 import net.typho.data_util.DataFormat
 import net.typho.data_util.ParsingIterator
 import net.typho.data_util.SerializedData
+import net.typho.data_util.error.ErrorStack
 
 open class XMLFormat(
     @JvmField
@@ -10,11 +11,11 @@ open class XMLFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : DataFormat<XMLDocument> {
-    override fun createInput(data: XMLDocument) = XMLValueInput(data.root)
+    override fun createInput(data: XMLDocument) = XMLValueInput(data.root, ErrorStack(format = this))
 
-    override fun createOutput() = XMLDocumentValueOutput()
+    override fun createOutput() = XMLDocumentValueOutput(ErrorStack(format = this))
 
-    fun createOutput(metadata: MutableList<XMLStubElement> = mutableListOf()) = XMLDocumentValueOutput(metadata)
+    fun createOutput(metadata: MutableList<XMLStubElement> = mutableListOf()) = XMLDocumentValueOutput(ErrorStack(format = this), metadata)
 
     override fun read(input: SerializedData): XMLDocument {
         val input = ParsingIterator(input.asString(), true)

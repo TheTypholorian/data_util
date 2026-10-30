@@ -199,10 +199,15 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             versionKey: String = "version"
         ) = versioned(STRING, versionGetter, dataCodec, versionKey)
 
+        @JvmOverloads
+        @JvmStatic
+        inline fun <reified T> reflect(reverseInheritanceOrder: Boolean = false) = reflect(T::class.java, reverseInheritanceOrder)
+
         /**
          * @param reverseInheritanceOrder defines where superclass fields are in the constructor, True = at the end and False = at the start (defaults to false because it's the IntelliJ default)
          */
         @Suppress("UNCHECKED_CAST")
+        @JvmOverloads
         @JvmStatic
         fun <T> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): MapCodec<T> {
             data class Entry(
