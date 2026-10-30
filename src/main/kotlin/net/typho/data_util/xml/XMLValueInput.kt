@@ -82,7 +82,8 @@ class XMLValueInput(
                 .children
                 .forEach {
                     val key = (it as XMLElement).name
-                    errorStack.push("Key '$key'") {
+                    errorStack.push(
+                        "Key '$key'") {
                         out.accept(key, XMLValueInput(it.children.single(), errorStack))
                     }
                 }
@@ -91,14 +92,22 @@ class XMLValueInput(
 
     override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
         errorStack.push("Static map") {
-            read<XMLElement>("list")
+            val list = read<XMLElement>("list")
                 .children
-                .forEach {
-                    val key = (it as XMLElement).name
-                    errorStack.push("Key '$key'") {
-                        out.accept(XMLValueInput(it.children.single(), errorStack))
+                .filterIsInstance<XMLElement>()
+                .toMutableList()
+
+            keys.forEach { key ->
+                errorStack.push("Key '$key'") {
+                    val index = list.indexOfFirst { it.name == key }
+
+                    if (index == -1) {
+                        error("Map does not contain key '$key'")
                     }
+
+                    out.accept(XMLValueInput(list.removeAt(index).children.single(), errorStack))
                 }
+            }
         }
     }
 
