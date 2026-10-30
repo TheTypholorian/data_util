@@ -55,8 +55,10 @@ class XMLValueInput(
         errorStack.push("Dynamic list") {
             read<XMLElement>("list")
                 .children
-                .forEach {
-                    out.accept(XMLValueInput((it as XMLElement).children.single(), errorStack))
+                .forEachIndexed { index, value ->
+                    errorStack.push("Entry #${index + 1}") {
+                        out.accept(XMLValueInput((value as XMLElement).children.single(), errorStack))
+                    }
                 }
         }
     }
@@ -66,7 +68,11 @@ class XMLValueInput(
             read<XMLElement>("list")
                 .children
                 .also { if (it.size != size) error("List must have $size elements, got ${it.size}") }
-                .forEach { out.accept(XMLValueInput((it as XMLElement).children.single(), errorStack)) }
+                .forEachIndexed { index, value ->
+                    errorStack.push("Entry #${index + 1}") {
+                        out.accept(XMLValueInput((value as XMLElement).children.single(), errorStack))
+                    }
+                }
         }
     }
 
@@ -74,7 +80,12 @@ class XMLValueInput(
         errorStack.push("Dynamic map") {
             read<XMLElement>("list")
                 .children
-                .forEach { out.accept((it as XMLElement).name, XMLValueInput(it.children.single(), errorStack)) }
+                .forEach {
+                    val key = (it as XMLElement).name
+                    errorStack.push("Key '$key'") {
+                        out.accept(key, XMLValueInput(it.children.single(), errorStack))
+                    }
+                }
         }
     }
 
@@ -82,7 +93,12 @@ class XMLValueInput(
         errorStack.push("Static map") {
             read<XMLElement>("list")
                 .children
-                .forEach { out.accept(XMLValueInput((it as XMLElement).children.single(), errorStack)) }
+                .forEach {
+                    val key = (it as XMLElement).name
+                    errorStack.push("Key '$key'") {
+                        out.accept(XMLValueInput(it.children.single(), errorStack))
+                    }
+                }
         }
     }
 
