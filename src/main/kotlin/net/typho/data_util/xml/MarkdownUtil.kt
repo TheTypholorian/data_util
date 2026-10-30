@@ -19,7 +19,7 @@ object MarkdownUtil {
 
         fun flush() {
             if (!buffer.isEmpty()) {
-                result.add(XMLText(buffer.toString()))
+                result.add(XMLText(buffer.toString().trim()))
                 buffer.clear()
             }
         }
@@ -146,7 +146,7 @@ object MarkdownUtil {
             buffer.append(char)
         }
 
-        result.add(XMLText(buffer.toString())) // TODO
+        result.add(XMLText(buffer.toString().trim()))
 
         return result
     }

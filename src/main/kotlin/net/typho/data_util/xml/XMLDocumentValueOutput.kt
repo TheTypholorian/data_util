@@ -10,7 +10,7 @@ class XMLDocumentValueOutput(
     @JvmField
     var metadata: MutableList<XMLStubElement> = mutableListOf()
 ) : ValueOutput.WithResult<XMLDocument> {
-    private val delegate = XMLValueOutput<XMLNode>(errorStack)
+    private val delegate = XMLValueOutput(errorStack)
     override val areTypesWritten: Boolean
         get() = delegate.areTypesWritten
     override val errorStack: ErrorStack?

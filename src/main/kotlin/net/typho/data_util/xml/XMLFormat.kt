@@ -167,7 +167,7 @@ open class XMLFormat(
 
                     if (char == '<') {
                         if (text.isNotBlank()) {
-                            element.children.add(XMLText(readEntities(text.toString(), { input.error("Undefined entity &$it;") })))
+                            element.children.add(XMLText(readEntities(text.toString(), { input.error("Undefined entity &$it;") }).trim()))
                             text.clear()
                         }
 

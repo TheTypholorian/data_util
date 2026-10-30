@@ -248,7 +248,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                     val args = mutableListOf<Any?>()
                     val entries = entries.iterator()
                     input.readStaticMap(keys) { input ->
-                        entries.next().codec.read(input)
+                        args.add(entries.next().codec.read(input))
                     }
                     return constructor.newInstance(*args.toTypedArray()) as T
                 }

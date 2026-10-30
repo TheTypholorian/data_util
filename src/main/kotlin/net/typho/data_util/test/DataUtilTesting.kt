@@ -4,6 +4,7 @@ import net.typho.data_util.SerializedData
 import net.typho.data_util.anno.FieldCodec
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.json.JsonFormat
+import net.typho.data_util.xml.XMLFormat
 
 data class ExampleObject(
     @FieldCodec("Codec.INT.listOf()")
@@ -51,10 +52,15 @@ fun main(args: Array<String>) {
                     2,
                     3,
                     4,
-                    "5"
+                    5
                 ],
                 "otherField": "test"
             }
         }
     """.trimIndent())))
+
+    val xml = XMLFormat(prettyPrint = true)
+    val written = xml.write(Example.CODEC, example)
+    println(written.asString())
+    println(xml.read(Example.CODEC, written))
 }

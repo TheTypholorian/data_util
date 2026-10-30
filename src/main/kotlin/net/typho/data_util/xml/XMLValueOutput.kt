@@ -6,21 +6,20 @@ import net.typho.data_util.error.ErrorStack
 import net.typho.data_util.error.push
 import java.util.function.Consumer
 
-@Suppress("UNCHECKED_CAST")
-class XMLValueOutput<V : XMLNode>(
+class XMLValueOutput(
     override val errorStack: ErrorStack?
-) : ValueOutput.WithResult<V> {
+) : ValueOutput.WithResult<XMLNode> {
     override val areTypesWritten: Boolean
         get() = false
     private var written = false
-    private var value: V? = null
+    private var value: XMLNode? = null
 
-    override fun finish(): V {
+    override fun finish(): XMLNode {
         if (!written) {
             error("Value has not been written yet")
         }
 
-        return value as V
+        return value!!
     }
 
     private fun write(value: XMLNode) {
@@ -28,7 +27,7 @@ class XMLValueOutput<V : XMLNode>(
             error("Value has already been written")
         }
 
-        this.value = value as V
+        this.value = value
         written = true
     }
 
@@ -55,7 +54,7 @@ class XMLValueOutput<V : XMLNode>(
 
             entries.forEachIndexed { index, value ->
                 errorStack.push("Entry #${index + 1}") {
-                    val output = XMLValueOutput<XMLNode>(errorStack)
+                    val output = XMLValueOutput(errorStack)
                     value.accept(output)
                     val result = output.finish()
                     list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
@@ -72,7 +71,7 @@ class XMLValueOutput<V : XMLNode>(
 
             entries.forEach { value ->
                 errorStack.push("Entry #${index + 1}") {
-                    val output = XMLValueOutput<XMLNode>(errorStack)
+                    val output = XMLValueOutput(errorStack)
                     value.accept(output)
                     val result = output.finish()
                     list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
@@ -90,10 +89,10 @@ class XMLValueOutput<V : XMLNode>(
 
             entries.forEach { (key, value) ->
                 errorStack.push("Key '$key'") {
-                    val output = XMLValueOutput<XMLNode>(errorStack)
+                    val output = XMLValueOutput(errorStack)
                     value.accept(output)
                     val result = output.finish()
-                    map.children.add(XMLElement(key, children = mutableListOf(result)))
+                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
                 }
             }
         }
@@ -105,16 +104,16 @@ class XMLValueOutput<V : XMLNode>(
 
             entries.forEach { (key, value) ->
                 errorStack.push("Key '$key'") {
-                    val output = XMLValueOutput<XMLNode>(errorStack)
+                    val output = XMLValueOutput(errorStack)
                     value.accept(output)
                     val result = output.finish()
-                    map.children.add(XMLElement(key, children = mutableListOf(result)))
+                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
                 }
             }
         }
     }
 
-    override fun <V> writeOptional(value: V?, ifPresent: DataWriter<V>) {
+    override fun <XMLNode> writeOptional(value: XMLNode?, ifPresent: DataWriter<XMLNode>) {
         errorStack.push("Optional value '$value' (ifPresent $ifPresent)") {
             if (value == null) {
                 writeString("null")

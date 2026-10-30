@@ -44,7 +44,7 @@ open class XMLElement(
         } else {
             append('>')
 
-            if (children.size == 1) {
+            if (children.size == 1 || !prettyPrint) {
                 append(contentsAsString(prettyPrint))
             } else {
                 append('\n')
