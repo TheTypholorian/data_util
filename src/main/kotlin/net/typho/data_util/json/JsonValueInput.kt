@@ -111,7 +111,7 @@ class JsonValueInput(
     }
 
     override fun <V> readOptional(ifPresent: DataReader<V>): V? {
-        return errorStack.push("Optional value (ifPresent $ifPresent)") {
+        return errorStack.push("Optional value") {
             if (value == null) {
                 read = true
                 null

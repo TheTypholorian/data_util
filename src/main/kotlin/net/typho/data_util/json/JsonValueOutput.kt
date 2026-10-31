@@ -120,7 +120,7 @@ class JsonValueOutput<V>(
     }
 
     override fun <V> writeOptional(value: V?, ifPresent: DataWriter<V>) {
-        errorStack.push("Optional value '$value' (ifPresent $ifPresent)") {
+        errorStack.push("Optional value") {
             if (value == null) {
                 write(null)
             } else {
