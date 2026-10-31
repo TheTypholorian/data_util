@@ -127,15 +127,7 @@ open class XMLFormat(
                         val key = readWord(false)
                         skipOnlyWhitespacesUntil('=') { input.error("Invalid XML character after attribute name: $it") }
                         val quote = skipOnlyWhitespacesUntil('"', '\'') { input.error("Illegal open quotes character: $it") }
-                        val value = readEntities(buildString {
-                            for (char in input) {
-                                if (char == quote) {
-                                    break
-                                } else {
-                                    this.append(char)
-                                }
-                            }
-                        }, { input.error("Undefined entity &$it;") }) // TODO custom entities
+                        val value = readEntities(input.takeUntil { index, char -> char == quote } ?: input.error("Unterminated XML attribute value"), { input.error("Undefined entity &$it;") }) // TODO custom entities
 
                         if (attributes.put(key, value) != null) {
                             input.error("Duplicate XML attribute '$key'")
@@ -160,16 +152,19 @@ open class XMLFormat(
 
             // read tag contents
             if (start.closure == 0) {
-                val text = StringBuilder()
+                var startIndex = input.index
 
                 while (true) {
                     val char = input.next()
 
                     if (char == '<') {
+                        val text = input.text.substring(startIndex, input.index)
+
                         if (text.isNotBlank()) {
-                            element.children.add(XMLText(readEntities(text.toString(), { input.error("Undefined entity &$it;") }).trim()))
-                            text.clear()
+                            element.children.add(XMLText(readEntities(text, { input.error("Undefined entity &$it;") }).trim()))
                         }
+
+                        startIndex = input.index
 
                         val tag = readTag(false)
 
@@ -182,8 +177,6 @@ open class XMLFormat(
                         } else {
                             readNode(tag)?.let { element.children.add(it) }
                         }
-                    } else {
-                        text.append(char)
                     }
                 }
             }
@@ -239,6 +232,10 @@ open class XMLFormat(
 
         @JvmStatic
         fun readEntities(text: String, error: (key: String) -> Nothing, entities: Map<String, String> = defaultEntities): String {
+            if (text.indexOf('&') == -1) {
+                return text
+            }
+
             return buildString {
                 var index = 0
 
