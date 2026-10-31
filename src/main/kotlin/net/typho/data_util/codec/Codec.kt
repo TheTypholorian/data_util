@@ -3,11 +3,14 @@ package net.typho.data_util.codec
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriter
 import org.jetbrains.annotations.Nullable
+import java.io.File
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import java.net.URI
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
+import kotlin.io.path.Path
 import kotlin.reflect.jvm.kotlinProperty
 
 fun <T : Comparable<T>> Codec<T>.withRange(range: ClosedRange<T>) = withCondition { it in range }
@@ -60,6 +63,13 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         val DOUBLE = simple("Double Codec", ValueInput::readDouble, ValueOutput::writeDouble)
         @JvmField
         val STRING = simple("String Codec", ValueInput::readString, ValueOutput::writeString)
+
+        @JvmField
+        val FILE = STRING.map({ File(it) }, { it.toString() })
+        @JvmField
+        val PATH = STRING.map({ Path(it) }, { it.toString() })
+        @JvmField
+        val URI = STRING.map({ URI(it) }, { it.toString() })
 
         @JvmOverloads
         @JvmStatic
