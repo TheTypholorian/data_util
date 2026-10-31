@@ -161,7 +161,6 @@ open class XMLFormat(
                         val text = input.text.substring(startIndex, input.index - 1)
 
                         if (text.isNotBlank()) {
-                            println(text)
                             element.children.add(XMLText(readEntities(text, { input.error("Undefined entity &$it;") }).trim()))
                         }
 
