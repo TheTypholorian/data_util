@@ -9,7 +9,7 @@ import java.util.function.BiConsumer
 import java.util.function.Consumer
 
 class XMLValueInput(
-    private val value: XMLNode?,
+    private val value: XMLElement?,
     override val errorStack: ErrorStack?
 ): ValueInput {
     private var read = false
@@ -49,7 +49,7 @@ class XMLValueInput(
 
     override fun readDouble() = readString().toDouble()
 
-    override fun readString() = read<XMLText>("text").text
+    override fun readString() = (read<XMLElement>("text").children.single() as XMLText).text
 
     override fun readDynamicList(out: Consumer<ValueInput>) {
         errorStack.push("Dynamic list") {
@@ -57,7 +57,7 @@ class XMLValueInput(
                 .children
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput((value as XMLElement).children.singleOrNull() ?: value, errorStack))
+                        out.accept(XMLValueInput(value as XMLElement, errorStack))
                     }
                 }
         }
@@ -70,7 +70,7 @@ class XMLValueInput(
                 .also { if (it.size != size) error("List must have $size elements, got ${it.size}") }
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput((value as XMLElement).children.singleOrNull() ?: value, errorStack))
+                        out.accept(XMLValueInput(value as XMLElement, errorStack))
                     }
                 }
         }
@@ -83,7 +83,7 @@ class XMLValueInput(
                 .forEach {
                     val key = (it as XMLElement).name
                     errorStack.push("Key '$key'") {
-                        out.accept(key, XMLValueInput(it.children.singleOrNull() ?: it, errorStack))
+                        out.accept(key, XMLValueInput(it, errorStack))
                     }
                 }
         }
@@ -104,7 +104,7 @@ class XMLValueInput(
                         out.accept(XMLValueInput(null, errorStack))
                     } else {
                         val element = list.removeAt(index)
-                        out.accept(XMLValueInput(element.children.singleOrNull() ?: element, errorStack))
+                        out.accept(XMLValueInput(element, errorStack))
                     }
                 }
             }
@@ -113,7 +113,7 @@ class XMLValueInput(
 
     override fun <V> readOptional(ifPresent: DataReader<V>): V? {
         return errorStack.push("Optional value (ifPresent $ifPresent)") {
-            if (value == null || (value is XMLText && value.text == "null")) {
+            if (value == null) {
                 read = true
                 null
             } else {

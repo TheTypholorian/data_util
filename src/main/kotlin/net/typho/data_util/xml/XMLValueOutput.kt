@@ -8,21 +8,21 @@ import java.util.function.Consumer
 
 class XMLValueOutput(
     override val errorStack: ErrorStack?
-) : ValueOutput.WithResult<XMLNode> {
+) : ValueOutput.WithResult<XMLNode?> {
     override val areTypesWritten: Boolean
         get() = false
     private var written = false
     private var value: XMLNode? = null
 
-    override fun finish(): XMLNode {
+    override fun finish(): XMLNode? {
         if (!written) {
             error("Value has not been written yet")
         }
 
-        return value!!
+        return value
     }
 
-    private fun write(value: XMLNode) {
+    private fun write(value: XMLNode?) {
         if (written) {
             error("Value has already been written")
         }
@@ -56,8 +56,9 @@ class XMLValueOutput(
                 errorStack.push("Entry #${index + 1}") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    val result = output.finish()
-                    list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
+                    output.finish()?.let { result ->
+                        list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
+                    }
                 }
             }
         }
@@ -73,8 +74,9 @@ class XMLValueOutput(
                 errorStack.push("Entry #${index + 1}") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    val result = output.finish()
-                    list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
+                    output.finish()?.let { result ->
+                        list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
+                    }
                 }
 
                 index++
@@ -91,8 +93,9 @@ class XMLValueOutput(
                 errorStack.push("Key '$key'") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    val result = output.finish()
-                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
+                    output.finish()?.let { result ->
+                        map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
+                    }
                 }
             }
         }
@@ -106,17 +109,18 @@ class XMLValueOutput(
                 errorStack.push("Key '$key'") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    val result = output.finish()
-                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
+                    output.finish()?.let { result ->
+                        map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
+                    }
                 }
             }
         }
     }
 
-    override fun <XMLNode> writeOptional(value: XMLNode?, ifPresent: DataWriter<XMLNode>) {
+    override fun <V> writeOptional(value: V?, ifPresent: DataWriter<V>) {
         errorStack.push("Optional value '$value' (ifPresent $ifPresent)") {
             if (value == null) {
-                writeString("null")
+                write(null)
             } else {
                 ifPresent.write(this, value)
             }

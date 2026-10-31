@@ -6,9 +6,18 @@ import net.typho.data_util.codec.Codec
 import net.typho.data_util.json.JsonFormat
 import net.typho.data_util.xml.XMLFormat
 
+data class Test(
+    val value: Int
+) {
+    companion object {
+        @JvmField
+        val CODEC = Codec.reflect(Test::class.java)
+    }
+}
+
 data class ExampleObject(
-    @FieldCodec("Codec.INT.listOf()")
-    val exampleArray: List<Int>,
+    @FieldCodec("Test.CODEC.listOf()")
+    val exampleArray: List<Test>,
     val otherField: String
 ) {
     companion object {
@@ -37,7 +46,13 @@ fun main(args: Array<String>) {
     val example = Example(
         123,
         ExampleObject(
-            listOf(1, 2, 3, 4, 5),
+            listOf(
+                Test(1),
+                Test(2),
+                Test(3),
+                Test(4),
+                Test(5)
+            ),
             "test"
         )
     )
@@ -48,11 +63,21 @@ fun main(args: Array<String>) {
             "abc": 123,
             "obj": {
                 "exampleArray": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5
+                    {
+                        "value": 1
+                    },
+                    {
+                        "value": 2
+                    },
+                    {
+                        "value": 3
+                    },
+                    {
+                        "value": 4
+                    },
+                    {
+                        "value": 5
+                    }
                 ],
                 "otherField": "test"
             }

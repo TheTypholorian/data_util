@@ -16,7 +16,7 @@ class XMLDocumentValueOutput(
     override val errorStack: ErrorStack?
         get() = delegate.errorStack
 
-    override fun finish() = XMLDocument(delegate.finish().let { it as? XMLElement ?: XMLElement("root", children = mutableListOf(it)) }, metadata)
+    override fun finish() = XMLDocument(delegate.finish().let { it as? XMLElement ?: XMLElement("root", children = if (it == null) mutableListOf() else mutableListOf(it)) }, metadata)
 
     override fun writeBoolean(v: Boolean) = delegate.writeBoolean(v)
 
