@@ -128,6 +128,7 @@ open class XMLFormat(
                         skipOnlyWhitespacesUntil('=') { input.error("Invalid XML character after attribute name: $it") }
                         val quote = skipOnlyWhitespacesUntil('"', '\'') { input.error("Illegal open quotes character: $it") }
                         val value = readEntities(input.takeUntil { index, char -> char == quote } ?: input.error("Unterminated XML attribute value"), { input.error("Undefined entity &$it;") }) // TODO custom entities
+                        input.next() // skip end quote
 
                         if (attributes.put(key, value) != null) {
                             input.error("Duplicate XML attribute '$key'")
