@@ -2,12 +2,13 @@ package net.typho.data_util.codec
 
 import net.typho.data_util.DataReader
 import net.typho.data_util.DataWriter
-import net.typho.data_util.codec.reflect.FieldCodecScript
+import org.jetbrains.annotations.Nullable
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
+import kotlin.reflect.jvm.kotlinProperty
 
 fun <T : Comparable<T>> Codec<T>.withRange(range: ClosedRange<T>) = withCondition { it in range }
 
@@ -115,7 +116,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
-        fun <T> getPrimitiveCodec(cls: Class<T>): Codec<T>? {
+        fun <T> getDefaultCodec(cls: Class<T>): Codec<T>? {
             return when (cls) {
                 Boolean::class.java, Boolean::class.javaObjectType -> BOOL as Codec<T>
                 Byte::class.java, Byte::class.javaObjectType -> BYTE as Codec<T>
@@ -131,12 +132,14 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
-        fun getFieldCodec(owner: Class<*>, field: Field): Codec<*> {
-            val guess = getPrimitiveCodec(field.type)
-            FieldCodecScript.compile(owner, field)?.let { return it }
-            guess?.let { return it }
+        fun getDefaultCodec(field: Field): Codec<*>? {
+            var codec = getDefaultCodec(field.type) ?: return null
 
-            throw IllegalStateException("Field ${owner.name}.${field.name} does not have a codec, use @FieldCodec() to set the codec (via a kotlin script)")
+            if (field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true) {
+                codec = codec.optional()
+            }
+
+            return codec
         }
 
         @JvmOverloads
@@ -201,15 +204,16 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @JvmOverloads
         @JvmStatic
-        inline fun <reified T> reflect(reverseInheritanceOrder: Boolean = false) = reflect(T::class.java, reverseInheritanceOrder)
+        inline fun <reified T : Any> reflect(noinline config: CodecReflectionConfig<T>.() -> Unit = { }) = reflect(T::class.java, config)
 
-        /**
-         * @param reverseInheritanceOrder defines where superclass fields are in the constructor, True = at the end and False = at the start (defaults to false because it's the IntelliJ default)
-         */
         @Suppress("UNCHECKED_CAST")
         @JvmOverloads
         @JvmStatic
-        fun <T> reflect(cls: Class<T>, reverseInheritanceOrder: Boolean = false): MapCodec<T> {
+        fun <T : Any> reflect(cls: Class<T>, config: CodecReflectionConfig<T>.() -> Unit = { }) = reflect(CodecReflectionConfig(cls).apply(config))
+
+        @Suppress("UNCHECKED_CAST")
+        @JvmStatic
+        fun <T : Any> reflect(config: CodecReflectionConfig<T>): MapCodec<T> {
             data class Entry(
                 @JvmField
                 val field: Field,
@@ -218,28 +222,19 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             )
 
             val fields = mutableListOf<Field>()
-            var temp: Class<*>? = cls
+            var temp: Class<*>? = config.cls
 
             while (temp != null) {
                 val clsFields = temp.declaredFields.filter { !Modifier.isStatic(it.modifiers) && !Modifier.isTransient(it.modifiers) }
-
-                if (reverseInheritanceOrder) {
-                    fields.addAll(clsFields)
-                } else {
-                    fields.addAll(0, clsFields)
-                }
-
+                fields.addAll(0, clsFields)
                 temp = temp.superclass
             }
 
             fields.forEach { it.isAccessible = true }
 
             val types = fields.map { it.type }.toTypedArray()
-            val constructor = cls.constructors.firstOrNull {
-                it.parameterTypes.contentEquals(types)
-            } ?: throw IllegalArgumentException("$cls is missing a constructor matching ${fields.map { "${it.type} ${it.name}" }}")
-
-            val entries = fields.map { field -> Entry(field, getFieldCodec(cls, field)) }
+            val constructor = config.cls.getConstructor(*types)
+            val entries = fields.map { field -> Entry(field, config.fields[field.name] ?: getDefaultCodec(field) ?: throw IllegalArgumentException("No codec found for field ${field.name}, use CodecReflectionConfig.field to set one")) }
 
             return object : MapCodec<T> {
                 override val keys = entries.map { it.field.name }
@@ -264,7 +259,7 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 }
 
                 override fun toString(): String {
-                    return "Reflected MapCodec of $cls, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
+                    return "Reflected MapCodec of ${config.cls}, fields: {${entries.joinToString(separator = "\n", prefix = "\n", transform = { "'${it.field.name}' with codec ${it.codec}" }).replace("\n", "\n\t")}\n}"
                 }
             }
         }

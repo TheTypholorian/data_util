@@ -1,7 +1,6 @@
 package net.typho.data_util.test
 
 import net.typho.data_util.SerializedData
-import net.typho.data_util.anno.FieldCodec
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.json.JsonFormat
 import net.typho.data_util.xml.XMLFormat
@@ -11,29 +10,31 @@ data class Test(
 ) {
     companion object {
         @JvmField
-        val CODEC = Codec.reflect(Test::class.java)
+        val CODEC = Codec.reflect<Test>()
     }
 }
 
 data class ExampleObject(
-    @FieldCodec("Test.CODEC.listOf()")
     val exampleArray: List<Test>,
     val otherField: String
 ) {
     companion object {
         @JvmField
-        val CODEC = Codec.reflect(ExampleObject::class.java)
+        val CODEC = Codec.reflect<ExampleObject> {
+            field(ExampleObject::exampleArray, Test.CODEC.listOf())
+        }
     }
 }
 
 data class Example(
     val abc: Int,
-    @FieldCodec("ExampleObject.CODEC")
     val obj: ExampleObject
 ) {
     companion object {
         @JvmField
-        val CODEC = Codec.reflect(Example::class.java)
+        val CODEC = Codec.reflect<Example> {
+            field(Example::obj, ExampleObject.CODEC)
+        }
     }
 }
 

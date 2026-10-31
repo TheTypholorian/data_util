@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "net.typho"
-version = "2.2.1"
+version = "2.3.0"
 
 repositories {
     mavenCentral()
@@ -12,9 +12,6 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation(kotlin("compiler-embeddable"))
-    implementation(kotlin("scripting-jvm"))
-    implementation(kotlin("scripting-jvm-host"))
 }
 
 kotlin {
