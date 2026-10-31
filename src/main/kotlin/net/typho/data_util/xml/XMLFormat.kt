@@ -161,10 +161,9 @@ open class XMLFormat(
                         val text = input.text.substring(startIndex, input.index - 1)
 
                         if (text.isNotBlank()) {
+                            println(text)
                             element.children.add(XMLText(readEntities(text, { input.error("Undefined entity &$it;") }).trim()))
                         }
-
-                        startIndex = input.index
 
                         val tag = readTag(false)
 
@@ -176,6 +175,7 @@ open class XMLFormat(
                             return element
                         } else {
                             readNode(tag)?.let { element.children.add(it) }
+                            startIndex = input.index
                         }
                     }
                 }

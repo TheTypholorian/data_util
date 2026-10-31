@@ -90,7 +90,7 @@ open class ParsingIterator @JvmOverloads constructor(
             val char = next()
 
             if (predicate(i++, char)) {
-                return text.substring(start, index)
+                return text.substring(start, index - 1)
             }
         }
 
