@@ -6,7 +6,10 @@ import org.jetbrains.annotations.Nullable
 import java.io.File
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
+import java.lang.reflect.ParameterizedType
+import java.lang.reflect.Type
 import java.net.URI
+import java.nio.file.Path
 import java.util.function.Consumer
 import java.util.function.Function
 import java.util.function.Predicate
@@ -73,24 +76,6 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
 
         @JvmOverloads
         @JvmStatic
-        fun <E : Enum<E>> enumCodec(cls: Class<E>, caseSensitive: Boolean = false): Codec<E> {
-            return object : Codec<E> {
-                override fun read(input: ValueInput): E {
-                    return input.readEnum(cls, caseSensitive)
-                }
-
-                override fun write(output: ValueOutput, value: E) {
-                    output.writeEnum(value)
-                }
-
-                override fun toString(): String {
-                    return "Enum Codec for $cls"
-                }
-            }
-        }
-
-        @JvmOverloads
-        @JvmStatic
         fun <V> dynamicMap(valueCodec: Codec<V>, errorOnDuplicateKeys: Boolean = true) = dynamicMap({ it }, { it }, valueCodec, errorOnDuplicateKeys)
 
         @JvmOverloads
@@ -123,34 +108,6 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 )
             }
         )
-
-        @Suppress("UNCHECKED_CAST")
-        @JvmStatic
-        fun <T> getDefaultCodec(cls: Class<T>): Codec<T>? {
-            return when (cls) {
-                Boolean::class.java, Boolean::class.javaObjectType -> BOOL as Codec<T>
-                Byte::class.java, Byte::class.javaObjectType -> BYTE as Codec<T>
-                Short::class.java, Short::class.javaObjectType -> SHORT as Codec<T>
-                Int::class.java, Int::class.javaObjectType -> INT as Codec<T>
-                Long::class.java, Long::class.javaObjectType -> LONG as Codec<T>
-                Float::class.java, Float::class.javaObjectType -> FLOAT as Codec<T>
-                Double::class.java, Double::class.javaObjectType -> DOUBLE as Codec<T>
-                String::class.java -> STRING as Codec<T>
-                else -> if (cls.isEnum) enumCodec(cls as Class<out Enum<*>>) as Codec<T> else null
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        @JvmStatic
-        fun getDefaultCodec(field: Field): Codec<*>? {
-            var codec = getDefaultCodec(field.type) ?: return null
-
-            if (field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true) {
-                codec = codec.optional()
-            }
-
-            return codec
-        }
 
         @JvmOverloads
         @JvmStatic
@@ -211,6 +168,71 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             dataCodec: Function<String, Codec<T>>,
             versionKey: String = "version"
         ) = versioned(STRING, versionGetter, dataCodec, versionKey)
+
+        @JvmOverloads
+        @JvmStatic
+        fun <E : Enum<E>> enumCodec(cls: Class<E>, caseSensitive: Boolean = false): Codec<E> {
+            return object : Codec<E> {
+                override fun read(input: ValueInput): E {
+                    return input.readEnum(cls, caseSensitive)
+                }
+
+                override fun write(output: ValueOutput, value: E) {
+                    output.writeEnum(value)
+                }
+
+                override fun toString(): String {
+                    return "Enum Codec for $cls"
+                }
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        @JvmStatic
+        fun getDefaultCodec(type: Type): Codec<*>? {
+            fun <T> listToSet(codec: Codec<List<T>>): Codec<Set<T>> {
+                return codec.map({ it.toSet() }, { it.toList() })
+            }
+
+            return when (type) {
+                is ParameterizedType -> when (type.rawType) {
+                    List::class.java -> getDefaultCodec(type.actualTypeArguments[0])?.listOf()
+                    Set::class.java -> getDefaultCodec(type.actualTypeArguments[0])?.let { listToSet(it.listOf()) }
+                    Map::class.java -> if (type.actualTypeArguments[0] == String::class.java) {
+                        getDefaultCodec(type.actualTypeArguments[1])?.let { value -> dynamicMap(value) }
+                    } else null
+                    else -> null
+                }
+                is Class<*> -> when (type) {
+                    Boolean::class.java, Boolean::class.javaObjectType -> BOOL
+                    Byte::class.java, Byte::class.javaObjectType -> BYTE
+                    Short::class.java, Short::class.javaObjectType -> SHORT
+                    Int::class.java, Int::class.javaObjectType -> INT
+                    Long::class.java, Long::class.javaObjectType -> LONG
+                    Float::class.java, Float::class.javaObjectType -> FLOAT
+                    Double::class.java, Double::class.javaObjectType -> DOUBLE
+                    String::class.java -> STRING
+                    File::class.java -> FILE
+                    @Suppress("RemoveRedundantQualifierName")
+                    java.net.URI::class.java -> URI
+                    Path::class.java -> PATH
+                    else -> if (type.isEnum) enumCodec(type as Class<out Enum<*>>) else null
+                }
+                else -> null
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        @JvmStatic
+        fun getDefaultCodec(field: Field): Codec<*>? {
+            var codec = getDefaultCodec(field.genericType) ?: return null
+
+            if (field.isAnnotationPresent(Nullable::class.java) || field.kotlinProperty?.returnType?.isMarkedNullable == true) {
+                codec = codec.optional()
+            }
+
+            return codec
+        }
 
         @JvmOverloads
         @JvmStatic
