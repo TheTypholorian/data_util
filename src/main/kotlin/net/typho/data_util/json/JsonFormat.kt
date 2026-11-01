@@ -5,8 +5,6 @@ import net.typho.data_util.SerializedData
 import net.typho.data_util.error.DataReadException
 import net.typho.data_util.error.DataWriteException
 import net.typho.data_util.error.ErrorStack
-import net.typho.data_util.impl.TokenConstants
-import net.typho.data_util.impl.TokenList
 
 open class JsonFormat(
     @JvmField

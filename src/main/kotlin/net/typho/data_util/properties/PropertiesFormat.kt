@@ -1,10 +1,9 @@
-package net.typho.data_util.impl
+package net.typho.data_util.properties
 
 import net.typho.data_util.DataFormat
 import net.typho.data_util.SerializedData
-import net.typho.data_util.codec.ValueInput
-import net.typho.data_util.codec.ValueOutput
 import net.typho.data_util.error.DataReadException
+import net.typho.data_util.error.ErrorStack
 
 open class PropertiesFormat(
     @JvmField
@@ -12,17 +11,13 @@ open class PropertiesFormat(
 ) : DataFormat<Map<String, String>> {
     init {
         if (delimiterToWrite != '=' && delimiterToWrite != ':') {
-            throw IllegalArgumentException("Properties file delimiter must be '=' or ';', not '$delimiterToWrite'")
+            throw IllegalArgumentException("Properties file delimiter must be '=' or ':', not '$delimiterToWrite'")
         }
     }
 
-    override fun createInput(data: Map<String, String>): ValueInput {
-        TODO("Not yet implemented")
-    }
+    override fun createInput(data: Map<String, String>) = PropertiesValueInput("", data, ErrorStack(format = this))
 
-    override fun createOutput(): ValueOutput.WithResult<Map<String, String>> {
-        TODO("Not yet implemented")
-    }
+    override fun createOutput() = PropertiesValueOutput("", mutableMapOf(), ErrorStack(format = this))
 
     override fun read(input: SerializedData): Map<String, String> {
         val input = input.asString()
@@ -66,19 +61,21 @@ open class PropertiesFormat(
         val builder = StringBuilder()
 
         data.forEach { (key, value) ->
-            if (key.any { it.isWhitespace() }) {
-                throw IllegalArgumentException("Property keys must not have whitespaces")
-            }
+            if (value != null) {
+                if (key.any { it.isWhitespace() }) {
+                    throw IllegalArgumentException("Property keys must not have whitespaces")
+                }
 
-            // Write line
-            builder.appendLine("$key$delimiterToWrite${DataFormat.writeEscapeSequences(value)}")
+                // Write line
+                builder.appendLine("$key$delimiterToWrite${DataFormat.writeEscapeSequences(value)}")
+            }
         }
 
-        return SerializedData(builder.toString())
+        return SerializedData.Companion(builder.toString())
     }
 
     override fun toString(): String {
-        return "PropertiesFormat(delimiterToWrite=$delimiterToWrite)"
+        return "PropertiesFormat(delimiterToWrite='$delimiterToWrite')"
     }
 
     companion object Default : PropertiesFormat()

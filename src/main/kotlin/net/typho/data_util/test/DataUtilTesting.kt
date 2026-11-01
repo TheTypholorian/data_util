@@ -3,25 +3,17 @@ package net.typho.data_util.test
 import net.typho.data_util.SerializedData
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.json.JsonFormat
+import net.typho.data_util.properties.PropertiesFormat
 import net.typho.data_util.xml.XMLFormat
 
-data class Test(
-    val value: Int
-) {
-    companion object {
-        @JvmField
-        val CODEC = Codec.reflect<Test>()
-    }
-}
-
 data class ExampleObject(
-    val exampleArray: List<Test>,
+    val exampleArray: List<Int>,
     val otherField: String
 ) {
     companion object {
         @JvmField
         val CODEC = Codec.reflect<ExampleObject> {
-            field(ExampleObject::exampleArray, Test.CODEC.listOf())
+            field(ExampleObject::exampleArray, Codec.INT.listOf())
         }
     }
 }
@@ -29,13 +21,13 @@ data class ExampleObject(
 data class Example(
     val abc: Int,
     val obj: ExampleObject,
-    val map: Map<String, String?>
+    val map: Map<String, String>
 ) {
     companion object {
         @JvmField
         val CODEC = Codec.reflect<Example> {
             field(Example::obj, ExampleObject.CODEC)
-            field(Example::map, Codec.dynamicMap(Codec.STRING.optional()))
+            field(Example::map, Codec.dynamicMap(Codec.STRING))
         }
     }
 }
@@ -50,15 +42,15 @@ fun main(args: Array<String>) {
         123,
         ExampleObject(
             listOf(
-                Test(1),
-                Test(2),
-                Test(3),
-                Test(4),
-                Test(5)
+                1,
+                2,
+                3,
+                4,
+                5
             ),
             "test"
         ),
-        mapOf("abc" to "123", "def" to null)
+        mapOf("abc" to "123", "def" to "456")
     )
 
     println(format.write(Example.CODEC, example).asString())
@@ -67,27 +59,17 @@ fun main(args: Array<String>) {
             "abc": 123,
             "obj": {
                 "exampleArray": [
-                    {
-                        "value": 1
-                    },
-                    {
-                        "value": 2
-                    },
-                    {
-                        "value": 3
-                    },
-                    {
-                        "value": 4
-                    },
-                    {
-                        "value": 5
-                    }
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
                 ],
                 "otherField": "test"
             },
             "map": {
                 "abc": "123",
-                "def": null
+                "def": "456"
             }
         }
     """.trimIndent())))
@@ -96,4 +78,9 @@ fun main(args: Array<String>) {
     val written = xml.write(Example.CODEC, example)
     println(written.asString())
     println(xml.read(Example.CODEC, written))
+
+    val properties = PropertiesFormat
+    val written1 = properties.write(Example.CODEC, example)
+    println(written1.asString())
+    println(properties.read(Example.CODEC, written1))
 }

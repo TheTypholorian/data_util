@@ -1,4 +1,4 @@
-package net.typho.data_util.impl
+package net.typho.data_util.toml
 
 /*
 open class TomlFormat(

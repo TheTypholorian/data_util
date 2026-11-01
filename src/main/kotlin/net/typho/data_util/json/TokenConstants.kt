@@ -1,4 +1,4 @@
-package net.typho.data_util.impl
+package net.typho.data_util.json
 
 enum class TokenConstants {
     ARRAY_CLOSE,
