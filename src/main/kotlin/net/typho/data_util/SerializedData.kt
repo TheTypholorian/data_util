@@ -10,6 +10,8 @@ abstract class SerializedData private constructor() {
 
     abstract fun save(path: Path)
 
+    abstract override fun toString(): String
+
     companion object {
         @JvmStatic
         @JvmName("of")
@@ -20,7 +22,7 @@ abstract class SerializedData private constructor() {
 
             override fun save(path: Path) = path.writeText(text)
 
-            override fun toString() = "SerializedData(text='$text')"
+            override fun toString() = text
         }
 
         @JvmStatic
@@ -32,7 +34,7 @@ abstract class SerializedData private constructor() {
 
             override fun save(path: Path) = path.writeBytes(bytes)
 
-            override fun toString() = "SerializedData(bytes=${bytes.contentToString()})"
+            override fun toString() = bytes.contentToString()
         }
 
         @JvmStatic
@@ -50,7 +52,7 @@ abstract class SerializedData private constructor() {
                 }
             }
 
-            override fun toString() = "SerializedData(path='$file')"
+            override fun toString() = file.toString()
         }
     }
 }
