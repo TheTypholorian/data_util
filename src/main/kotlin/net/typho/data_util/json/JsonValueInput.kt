@@ -101,7 +101,7 @@ class JsonValueInput(
 
     override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
         errorStack.push("Static map") {
-            val map = readMap()
+            val map = peek<Map<String, *>>("map")
             keys.forEach { key ->
                 errorStack.push("Key '$key'") {
                     out.accept(JsonValueInput(map[key], errorStack))

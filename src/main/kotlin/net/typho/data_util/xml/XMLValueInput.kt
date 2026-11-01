@@ -78,7 +78,7 @@ class XMLValueInput(
 
     override fun readDynamicMap(out: BiConsumer<String, ValueInput>) {
         errorStack.push("Dynamic map") {
-            read<XMLElement>("list")
+            read<XMLElement>("map")
                 .children
                 .forEach {
                     val key = (it as XMLElement).name
@@ -91,21 +91,14 @@ class XMLValueInput(
 
     override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
         errorStack.push("Static map") {
-            val list = read<XMLElement>("list")
+            val map = peek<XMLElement>("map")
                 .children
                 .filterIsInstance<XMLElement>()
                 .toMutableList()
 
             keys.forEach { key ->
                 errorStack.push("Key '$key'") {
-                    val index = list.indexOfFirst { it.name == key }
-
-                    if (index == -1) {
-                        out.accept(XMLValueInput(null, errorStack))
-                    } else {
-                        val element = list.removeAt(index)
-                        out.accept(XMLValueInput(element, errorStack))
-                    }
+                    out.accept(XMLValueInput(map.firstOrNull { it.name == key }, errorStack))
                 }
             }
         }
