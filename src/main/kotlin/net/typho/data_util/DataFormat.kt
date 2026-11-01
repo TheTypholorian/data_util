@@ -6,6 +6,9 @@ import net.typho.data_util.codec.ValueOutput
 import net.typho.data_util.error.DataReadException
 import net.typho.data_util.error.DataWriteException
 
+/**
+ * [Documentation](https://github.com/TheTypholorian/data_util/wiki#dataformat)
+ */
 interface DataFormat<V> {
     fun read(input: SerializedData): V
 

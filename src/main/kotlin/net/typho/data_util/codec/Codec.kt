@@ -24,6 +24,9 @@ fun <T : Comparable<T>> Codec<T>.withMin(min: T) = withCondition { it >= min }
 
 fun <T : Comparable<T>> Codec<T>.withMax(max: T) = withCondition { it <= max }
 
+/**
+ * [Documentation](https://github.com/TheTypholorian/data_util/wiki#codec)
+ */
 interface Codec<T> : DataReader<T>, DataWriter<T> {
     companion object {
         private fun <T> simple(name: String, read: DataReader<T>, write: DataWriter<T>) = object : Codec<T> {
@@ -39,16 +42,6 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
                 return name
             }
         }
-
-        @JvmField
-        val NUMBER_CLASSES = listOf(
-            Byte::class.java,
-            Short::class.java,
-            Int::class.java,
-            Long::class.java,
-            Float::class.java,
-            Double::class.java
-        )
 
         @JvmField
         val BOOL = simple("Boolean Codec", ValueInput::readBoolean, ValueOutput::writeBoolean)
@@ -187,6 +180,9 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
         }
 
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
         fun getDefaultCodec(type: Type): Codec<*>? {
@@ -222,6 +218,9 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             }
         }
 
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
         fun getDefaultCodec(field: Field): Codec<*>? {
@@ -234,15 +233,32 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
             return codec
         }
 
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
         @JvmOverloads
         @JvmStatic
         inline fun <reified T : Any> reflect(noinline config: CodecReflectionConfig<T>.() -> Unit = { }) = reflect(T::class.java, config)
 
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
+        @Suppress("UNCHECKED_CAST")
+        @JvmOverloads
+        @JvmStatic
+        fun <T : Any> reflect(cls: Class<T>, config: Consumer<CodecReflectionConfig<T>> = { }) = reflect(CodecReflectionConfig(cls).apply { config.accept(this) })
+
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
         @Suppress("UNCHECKED_CAST")
         @JvmOverloads
         @JvmStatic
         fun <T : Any> reflect(cls: Class<T>, config: CodecReflectionConfig<T>.() -> Unit = { }) = reflect(CodecReflectionConfig(cls).apply(config))
 
+        /**
+         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
+         */
         @Suppress("UNCHECKED_CAST")
         @JvmStatic
         fun <T : Any> reflect(config: CodecReflectionConfig<T>): MapCodec<T> {

@@ -7,7 +7,8 @@ import java.util.function.BiConsumer
 import java.util.function.Consumer
 
 /**
- * All methods can only be called once per instance (except [readStaticList] and [readStaticMap])
+ * All methods can only be called once per instance (except [readStaticMap])
+ * [Documentation](https://github.com/TheTypholorian/data_util/wiki#valueinput-and-valueoutput)
  */
 interface ValueInput {
     /**
@@ -28,6 +29,8 @@ interface ValueInput {
      * }
      * ```
      * would have [ValueType.ARRAY], so you know to read it as a list.
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#value-types)
      */
     val type: ValueType?
     val errorStack: ErrorStack?
@@ -58,16 +61,22 @@ interface ValueInput {
 
     /**
      * See [ValueOutput.writeDynamicList]
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun readDynamicList(out: Consumer<ValueInput>)
 
     /**
      * See [ValueOutput.writeStaticList]
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun readStaticList(size: Int, out: Consumer<ValueInput>)
 
     /**
      * See [ValueOutput.writeDynamicMap]
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun readDynamicMap(out: BiConsumer<String, ValueInput>)
 
@@ -77,6 +86,8 @@ interface ValueInput {
      * Can be called multiple times (ex. for reading a version number, though that should be done with [Codec.versioned]).
      *
      * The consumer will be called in the same order as [keys].
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>)
 

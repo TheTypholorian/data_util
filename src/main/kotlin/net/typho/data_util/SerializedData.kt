@@ -3,6 +3,9 @@ package net.typho.data_util
 import java.nio.file.Path
 import kotlin.io.path.*
 
+/**
+ * [Documentation](https://github.com/TheTypholorian/data_util/wiki#serializeddata)
+ */
 abstract class SerializedData private constructor() {
     abstract fun asString(): String
 
@@ -34,7 +37,7 @@ abstract class SerializedData private constructor() {
 
             override fun save(path: Path) = path.writeBytes(bytes)
 
-            override fun toString() = bytes.contentToString()
+            override fun toString() = bytes.map { "0x${it.toHexString()}" }.toString()
         }
 
         @JvmStatic

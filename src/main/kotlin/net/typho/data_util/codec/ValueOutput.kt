@@ -6,7 +6,8 @@ import net.typho.data_util.error.ErrorStack
 import java.util.function.Consumer
 
 /**
- * All methods can only be called once per instance (except [writeStaticList] and [writeStaticMap])
+ * All methods can only be called once per instance (except [writeStaticMap])
+ * [Documentation](https://github.com/TheTypholorian/data_util/wiki#valueinput-and-valueoutput)
  */
 interface ValueOutput {
     /**
@@ -15,6 +16,8 @@ interface ValueOutput {
      * Signifies if the types will be known when read, which is true for data formats like json but false for packet serialization and XML.
      *
      * Used by [Codec.multi].
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#value-types)
      */
     val areTypesWritten: Boolean
     val errorStack: ErrorStack?
@@ -46,6 +49,8 @@ interface ValueOutput {
      * Writes a list of dynamic size.
      *
      * See [writeStaticList]
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun writeDynamicList(entries: Collection<Consumer<ValueOutput>>)
 
@@ -54,6 +59,8 @@ interface ValueOutput {
      *
      * The size should be known separately by both writer and reader, so it does not need to be written.
      * This only matters for packet serialization, for data formats such as json and XML this method will be equivalent to [writeDynamicList].
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun writeStaticList(entries: Iterator<Consumer<ValueOutput>>)
 
@@ -61,6 +68,8 @@ interface ValueOutput {
      * Writes a map with dynamic keys.
      *
      * See [writeStaticMap]
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun writeDynamicMap(entries: Iterator<Pair<String, Consumer<ValueOutput>>>)
 
@@ -71,6 +80,8 @@ interface ValueOutput {
      * This only matters for packet serialization, for data formats such as json and XML this method will be equivalent to [writeDynamicMap].
      *
      * Can be called multiple times (ex. for writing a version number, though that should be done with [Codec.versioned]).
+     *
+     * [Documentation](https://github.com/TheTypholorian/data_util/wiki#collections)
      */
     fun writeStaticMap(entries: Iterator<Pair<String, Consumer<ValueOutput>>>)
 

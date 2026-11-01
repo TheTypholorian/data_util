@@ -27,7 +27,6 @@ data class Example(
         @JvmField
         val CODEC = Codec.reflect<Example> {
             field(Example::obj, ExampleObject.CODEC)
-            field(Example::map, Codec.dynamicMap(Codec.STRING))
         }
     }
 }
