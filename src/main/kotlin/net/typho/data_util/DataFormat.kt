@@ -4,6 +4,7 @@ import net.typho.data_util.codec.Codec
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
 import net.typho.data_util.error.DataReadException
+import net.typho.data_util.error.DataWriteException
 
 interface DataFormat<V> {
     fun read(input: SerializedData): V
@@ -16,7 +17,14 @@ interface DataFormat<V> {
             it.codec = codec
             it.valueBeingSerialized = value
         }
-        return codec.read(input)
+
+        try {
+            return codec.read(input)
+        } catch (e: DataReadException) {
+            throw e
+        } catch (e: Exception) {
+            input.error(e.toString())
+        }
     }
 
     fun write(data: V): SerializedData
@@ -29,8 +37,15 @@ interface DataFormat<V> {
             it.codec = codec
             it.valueBeingSerialized = value
         }
-        codec.write(output, value)
-        return write(output.finish())
+
+        try {
+            codec.write(output, value)
+            return write(output.finish())
+        } catch (e: DataWriteException) {
+            throw e
+        } catch (e: Exception) {
+            output.error(e.toString())
+        }
     }
 
     companion object {

@@ -21,16 +21,16 @@ class XMLValueInput(
         error("Expected $expected, got ${value?.javaClass?.name}")
     }
 
-    private inline fun <reified V> peek(expected: String): V {
+    private fun peek(expected: String): XMLElement {
         if (read) {
             error("Value input has already been read")
         }
 
-        return value as? V ?: castError(expected)
+        return value ?: castError(expected)
     }
 
-    private inline fun <reified V> read(expected: String): V {
-        val value = peek<V>(expected)
+    private fun read(expected: String): XMLElement {
+        val value = peek(expected)
         read = true
         return value
     }
@@ -49,15 +49,15 @@ class XMLValueInput(
 
     override fun readDouble() = readString().toDouble()
 
-    override fun readString() = (read<XMLElement>("text").children.single() as XMLText).text
+    override fun readString() = (read("text").children.singleOrNull() as? XMLText ?: error("Children must be a single text element, got ${value!!.children}")).text
 
     override fun readDynamicList(out: Consumer<ValueInput>) {
         errorStack.push("Dynamic list") {
-            read<XMLElement>("list")
+            read("list")
                 .children
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput(value as XMLElement, errorStack))
+                        out.accept(XMLValueInput(value as? XMLElement ?: error("Entry must be an xml element, got $value"), errorStack))
                     }
                 }
         }
@@ -65,12 +65,12 @@ class XMLValueInput(
 
     override fun readStaticList(size: Int, out: Consumer<ValueInput>) {
         errorStack.push("Static list ($size entries)") {
-            read<XMLElement>("list")
+            read("list")
                 .children
                 .also { if (it.size != size) error("List must have $size elements, got ${it.size}") }
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput(value as XMLElement, errorStack))
+                        out.accept(XMLValueInput(value as? XMLElement ?: error("Entry must be an xml element, got $value"), errorStack))
                     }
                 }
         }
@@ -78,10 +78,10 @@ class XMLValueInput(
 
     override fun readDynamicMap(out: BiConsumer<String, ValueInput>) {
         errorStack.push("Dynamic map") {
-            read<XMLElement>("map")
+            read("map")
                 .children
                 .forEach {
-                    val key = (it as XMLElement).name
+                    val key = (it as? XMLElement ?: error("Entry must be an xml element, got $value")).name
                     errorStack.push("Key '$key'") {
                         out.accept(key, XMLValueInput(it, errorStack))
                     }
@@ -91,7 +91,7 @@ class XMLValueInput(
 
     override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
         errorStack.push("Static map") {
-            val map = peek<XMLElement>("map")
+            val map = peek("map")
                 .children
                 .filterIsInstance<XMLElement>()
                 .toMutableList()
