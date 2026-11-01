@@ -28,12 +28,14 @@ data class ExampleObject(
 
 data class Example(
     val abc: Int,
-    val obj: ExampleObject
+    val obj: ExampleObject,
+    val map: Map<String, String?>
 ) {
     companion object {
         @JvmField
         val CODEC = Codec.reflect<Example> {
             field(Example::obj, ExampleObject.CODEC)
+            field(Example::map, Codec.dynamicMap(Codec.STRING.optional()))
         }
     }
 }
@@ -55,7 +57,8 @@ fun main(args: Array<String>) {
                 Test(5)
             ),
             "test"
-        )
+        ),
+        mapOf("abc" to "123", "def" to null)
     )
 
     println(format.write(Example.CODEC, example).asString())
@@ -81,6 +84,10 @@ fun main(args: Array<String>) {
                     }
                 ],
                 "otherField": "test"
+            },
+            "map": {
+                "abc": "123",
+                "def": null
             }
         }
     """.trimIndent())))

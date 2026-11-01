@@ -9,7 +9,7 @@ import java.util.function.BiConsumer
 import java.util.function.Consumer
 
 class XMLValueInput(
-    private val value: XMLElement?,
+    private val value: List<XMLNode>,
     override val errorStack: ErrorStack?
 ): ValueInput {
     private var read = false
@@ -17,20 +17,16 @@ class XMLValueInput(
     override val type: ValueType?
         get() = null
 
-    private fun castError(expected: String): Nothing {
-        error("Expected $expected, got ${value?.javaClass?.name}")
-    }
-
-    private fun peek(expected: String): XMLElement {
+    private fun peek(): List<XMLNode> {
         if (read) {
             error("Value input has already been read")
         }
 
-        return value ?: castError(expected)
+        return value
     }
 
-    private fun read(expected: String): XMLElement {
-        val value = peek(expected)
+    private fun read(): List<XMLNode> {
+        val value = peek()
         read = true
         return value
     }
@@ -49,15 +45,14 @@ class XMLValueInput(
 
     override fun readDouble() = readString().toDouble()
 
-    override fun readString() = (read("text").children.singleOrNull() as? XMLText ?: error("Children must be a single text element, got ${value!!.children}")).text
+    override fun readString() = (read().singleOrNull() as? XMLText ?: error("Value must be a single text element, got $value")).text
 
     override fun readDynamicList(out: Consumer<ValueInput>) {
         errorStack.push("Dynamic list") {
-            read("list")
-                .children
+            read()
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput(value as? XMLElement ?: error("Entry must be an xml element, got $value"), errorStack))
+                        out.accept(XMLValueInput((value as? XMLElement ?: error("Entry must be an xml element, got $value")).children, errorStack))
                     }
                 }
         }
@@ -65,12 +60,11 @@ class XMLValueInput(
 
     override fun readStaticList(size: Int, out: Consumer<ValueInput>) {
         errorStack.push("Static list ($size entries)") {
-            read("list")
-                .children
+            read()
                 .also { if (it.size != size) error("List must have $size elements, got ${it.size}") }
                 .forEachIndexed { index, value ->
                     errorStack.push("Entry #${index + 1}") {
-                        out.accept(XMLValueInput(value as? XMLElement ?: error("Entry must be an xml element, got $value"), errorStack))
+                        out.accept(XMLValueInput((value as? XMLElement ?: error("Entry must be an xml element, got $value")).children, errorStack))
                     }
                 }
         }
@@ -78,27 +72,24 @@ class XMLValueInput(
 
     override fun readDynamicMap(out: BiConsumer<String, ValueInput>) {
         errorStack.push("Dynamic map") {
-            read("map")
-                .children
-                .forEach {
-                    val key = (it as? XMLElement ?: error("Entry must be an xml element, got $value")).name
-                    errorStack.push("Key '$key'") {
-                        out.accept(key, XMLValueInput(it, errorStack))
-                    }
+            read().forEach {
+                val key = (it as? XMLElement ?: error("Entry must be an xml element, got $value")).name
+                errorStack.push("Key '$key'") {
+                    out.accept(key, XMLValueInput(it.children, errorStack))
                 }
+            }
         }
     }
 
     override fun readStaticMap(keys: List<String>, out: Consumer<ValueInput>) {
         errorStack.push("Static map") {
-            val map = peek("map")
-                .children
+            val map = peek()
                 .filterIsInstance<XMLElement>()
                 .toMutableList()
 
             keys.forEach { key ->
                 errorStack.push("Key '$key'") {
-                    out.accept(XMLValueInput(map.firstOrNull { it.name == key }, errorStack))
+                    out.accept(XMLValueInput(map.firstOrNull { it.name == key }?.children ?: listOf(), errorStack))
                 }
             }
         }
@@ -106,7 +97,7 @@ class XMLValueInput(
 
     override fun <V> readOptional(ifPresent: DataReader<V>): V? {
         return errorStack.push("Optional value") {
-            if (value == null) {
+            if (value.isEmpty()) {
                 read = true
                 null
             } else {

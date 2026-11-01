@@ -11,7 +11,7 @@ open class XMLFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : DataFormat<XMLDocument> {
-    override fun createInput(data: XMLDocument) = XMLValueInput(data.root, ErrorStack(format = this))
+    override fun createInput(data: XMLDocument) = XMLValueInput(data.root.children, ErrorStack(format = this))
 
     override fun createOutput() = XMLDocumentValueOutput(ErrorStack(format = this))
 

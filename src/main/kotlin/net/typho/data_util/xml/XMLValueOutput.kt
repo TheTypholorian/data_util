@@ -56,9 +56,8 @@ class XMLValueOutput(
                 errorStack.push("Entry #${index + 1}") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    output.finish()?.let { result ->
-                        list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
-                    }
+                    val result = output.finish()
+                    list.children.add(result as? XMLElement ?: XMLElement("element", children = result?.let { mutableListOf(it) } ?: mutableListOf()))
                 }
             }
         }
@@ -74,9 +73,8 @@ class XMLValueOutput(
                 errorStack.push("Entry #${index + 1}") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    output.finish()?.let { result ->
-                        list.children.add(result as? XMLElement ?: XMLElement("element", children = mutableListOf(result)))
-                    }
+                    val result = output.finish()
+                    list.children.add(result as? XMLElement ?: XMLElement("element", children = result?.let { mutableListOf(it) } ?: mutableListOf()))
                 }
 
                 index++
@@ -93,9 +91,8 @@ class XMLValueOutput(
                 errorStack.push("Key '$key'") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    output.finish()?.let { result ->
-                        map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
-                    }
+                    val result = output.finish()
+                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: result?.let { mutableListOf(it) } ?: mutableListOf()))
                 }
             }
         }
@@ -109,9 +106,8 @@ class XMLValueOutput(
                 errorStack.push("Key '$key'") {
                     val output = XMLValueOutput(errorStack)
                     value.accept(output)
-                    output.finish()?.let { result ->
-                        map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: mutableListOf(result)))
-                    }
+                    val result = output.finish()
+                    map.children.add(XMLElement(key, children = (result as? XMLElement)?.children ?: result?.let { mutableListOf(it) } ?: mutableListOf()))
                 }
             }
         }
