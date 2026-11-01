@@ -10,12 +10,11 @@ interface DataFormat<V> {
 
     fun createInput(data: V): ValueInput
 
-    fun <T> read(codec: Codec<T>, input: SerializedData): T {
-        val value = read(input)
-        val input = createInput(value)
+    fun <T> read(codec: Codec<T>, value: SerializedData): T {
+        val input = createInput(read(value))
         input.errorStack?.let {
             it.codec = codec
-            it.valueBeingSerialized = input
+            it.valueBeingSerialized = value
         }
         return codec.read(input)
     }
