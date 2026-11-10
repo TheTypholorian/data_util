@@ -1,6 +1,6 @@
 package net.typho.data_util.xml
 
-import net.typho.data_util.ParsingIterator
+import net.typho.parsing_util.ParsingIterator
 import java.io.File
 
 object MarkdownUtil {

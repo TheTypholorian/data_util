@@ -1,10 +1,11 @@
 package net.typho.data_util.test
 
-import net.typho.data_util.SerializedData
+import net.typho.parsing_util.SerializedData
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.json.JsonFormat
 import net.typho.data_util.properties.PropertiesFormat
 import net.typho.data_util.xml.XMLFormat
+import net.typho.parsing_util.SerializedData.Companion.asData
 
 data class ExampleObject(
     val exampleArray: List<Int>,
@@ -53,7 +54,7 @@ fun main(args: Array<String>) {
     )
 
     println(format.write(Example.CODEC, example).asString())
-    println(format.read(Example.CODEC, SerializedData("""
+    println(format.read(Example.CODEC, """
         {
             "abc": 123,
             "obj": {
@@ -71,7 +72,7 @@ fun main(args: Array<String>) {
                 "def": "456"
             }
         }
-    """.trimIndent())))
+    """.trimIndent().asData()))
 
     val xml = XMLFormat(prettyPrint = true)
     val written = xml.write(Example.CODEC, example)

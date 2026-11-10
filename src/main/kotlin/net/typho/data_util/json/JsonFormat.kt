@@ -1,10 +1,11 @@
 package net.typho.data_util.json
 
 import net.typho.data_util.DataFormat
-import net.typho.data_util.SerializedData
-import net.typho.data_util.error.DataReadException
-import net.typho.data_util.error.DataWriteException
-import net.typho.data_util.error.ErrorStack
+import net.typho.parsing_util.SerializedData
+import net.typho.parsing_util.SerializedData.Companion.asData
+import net.typho.parsing_util.error.DataReadException
+import net.typho.parsing_util.error.DataWriteException
+import net.typho.parsing_util.error.ErrorStack
 
 open class JsonFormat(
     @JvmField
@@ -12,9 +13,13 @@ open class JsonFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : DataFormat<Map<String, Any?>> {
-    override fun createInput(data: Map<String, Any?>) = JsonValueInput(data, ErrorStack(format = this))
+    override fun createInput(data: Map<String, Any?>) = JsonValueInput(data, ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
-    override fun createOutput() = JsonValueOutput<Map<String, Any?>>(ErrorStack(format = this))
+    override fun createOutput() = JsonValueOutput<Map<String, Any?>>(ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
     override fun read(input: SerializedData): Map<String, Any?> {
         val input = input.asString()
@@ -346,9 +351,9 @@ open class JsonFormat(
     }
 
     override fun write(data: Map<String, Any?>): SerializedData {
-        return SerializedData.Companion(buildString {
+        return buildString {
             writeValue(data, 0, this)
-        })
+        }.asData()
     }
 
     private fun writeValue(value: Any?, depth: Int, builder: StringBuilder) {

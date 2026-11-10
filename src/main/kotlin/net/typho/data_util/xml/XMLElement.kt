@@ -1,6 +1,6 @@
 package net.typho.data_util.xml
 
-import net.typho.data_util.error.DataReadException
+import net.typho.parsing_util.error.DataReadException
 
 open class XMLElement(
     name: String,

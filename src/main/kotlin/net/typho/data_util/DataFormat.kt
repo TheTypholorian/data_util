@@ -3,8 +3,9 @@ package net.typho.data_util
 import net.typho.data_util.codec.Codec
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueOutput
-import net.typho.data_util.error.DataReadException
-import net.typho.data_util.error.DataWriteException
+import net.typho.parsing_util.SerializedData
+import net.typho.parsing_util.error.DataReadException
+import net.typho.parsing_util.error.DataWriteException
 
 /**
  * [Documentation](https://github.com/TheTypholorian/data_util/wiki#dataformat)
@@ -17,7 +18,7 @@ interface DataFormat<V> {
     fun <T> read(codec: Codec<T>, value: SerializedData): T {
         val input = createInput(read(value))
         input.errorStack?.let {
-            it.codec = codec
+            it.attributes["codec"] = codec
             it.valueBeingSerialized = value
         }
 
@@ -37,7 +38,7 @@ interface DataFormat<V> {
     fun <T> write(codec: Codec<T>, value: T): SerializedData {
         val output = createOutput()
         output.errorStack?.let {
-            it.codec = codec
+            it.attributes["codec"] = codec
             it.valueBeingSerialized = value
         }
 

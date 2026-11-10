@@ -1,9 +1,10 @@
 package net.typho.data_util.xml
 
 import net.typho.data_util.DataFormat
-import net.typho.data_util.ParsingIterator
-import net.typho.data_util.SerializedData
-import net.typho.data_util.error.ErrorStack
+import net.typho.parsing_util.ParsingIterator
+import net.typho.parsing_util.SerializedData
+import net.typho.parsing_util.SerializedData.Companion.asData
+import net.typho.parsing_util.error.ErrorStack
 
 open class XMLFormat(
     @JvmField
@@ -11,11 +12,17 @@ open class XMLFormat(
     @JvmField
     val prettyPrint: Boolean = false
 ) : DataFormat<XMLDocument> {
-    override fun createInput(data: XMLDocument) = XMLValueInput(data.root.children, ErrorStack(format = this))
+    override fun createInput(data: XMLDocument) = XMLValueInput(data.root.children, ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
-    override fun createOutput() = XMLDocumentValueOutput(ErrorStack(format = this))
+    override fun createOutput() = XMLDocumentValueOutput(ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
-    fun createOutput(metadata: MutableList<XMLStubElement> = mutableListOf()) = XMLDocumentValueOutput(ErrorStack(format = this), metadata)
+    fun createOutput(metadata: MutableList<XMLStubElement> = mutableListOf()) = XMLDocumentValueOutput(ErrorStack().also {
+        it.attributes["format"] = this
+    }, metadata)
 
     override fun read(input: SerializedData): XMLDocument {
         val input = ParsingIterator(input.asString(), true)
@@ -211,7 +218,7 @@ open class XMLFormat(
         return XMLDocument(root, metadata)
     }
 
-    override fun write(data: XMLDocument) = SerializedData(data.toXMLString(prettyPrint))
+    override fun write(data: XMLDocument) = data.toXMLString(prettyPrint).asData()
 
     fun write(element: XMLElement) = element.toXMLString(prettyPrint)
 
@@ -291,7 +298,7 @@ open class XMLFormat(
             ))
             println(format.write(xml))
             println()
-            val parsed = format.read(SerializedData("<?xml version=\"1.0\" ?><abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>"))
+            val parsed = format.read("<?xml version=\"1.0\" ?><abc attribute1='123' attribute2='456'>contents &amp; &lt;<inner a1=\"123472173\">abc123<!--this is a comment--><_123/></inner>other contents</abc>".asData())
             println(parsed)
             println(format.write(parsed))
         }

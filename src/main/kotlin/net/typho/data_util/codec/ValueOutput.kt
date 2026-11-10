@@ -1,8 +1,8 @@
 package net.typho.data_util.codec
 
 import net.typho.data_util.DataWriter
-import net.typho.data_util.error.DataWriteException
-import net.typho.data_util.error.ErrorStack
+import net.typho.parsing_util.error.DataWriteException
+import net.typho.parsing_util.error.ErrorStack
 import java.util.function.Consumer
 
 /**

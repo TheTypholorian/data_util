@@ -4,14 +4,16 @@ plugins {
 }
 
 group = "net.typho"
-version = "2.4.0"
+version = "2.5.0"
 
 repositories {
     mavenCentral()
+    maven("https://typho.net/maven")
 }
 
 dependencies {
     implementation(kotlin("reflect"))
+    implementation("net.typho:parsing_util:1.0.1")
 }
 
 kotlin {

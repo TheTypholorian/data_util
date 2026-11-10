@@ -246,14 +246,6 @@ interface Codec<T> : DataReader<T>, DataWriter<T> {
         @Suppress("UNCHECKED_CAST")
         @JvmOverloads
         @JvmStatic
-        fun <T : Any> reflect(cls: Class<T>, config: Consumer<CodecReflectionConfig<T>> = { }) = reflect(CodecReflectionConfig(cls).apply { config.accept(this) })
-
-        /**
-         * [Documentation](https://github.com/TheTypholorian/data_util/wiki#reflection)
-         */
-        @Suppress("UNCHECKED_CAST")
-        @JvmOverloads
-        @JvmStatic
         fun <T : Any> reflect(cls: Class<T>, config: CodecReflectionConfig<T>.() -> Unit = { }) = reflect(CodecReflectionConfig(cls).apply(config))
 
         /**

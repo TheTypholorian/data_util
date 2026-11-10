@@ -1,9 +1,10 @@
 package net.typho.data_util.properties
 
 import net.typho.data_util.DataFormat
-import net.typho.data_util.SerializedData
-import net.typho.data_util.error.DataReadException
-import net.typho.data_util.error.ErrorStack
+import net.typho.parsing_util.SerializedData
+import net.typho.parsing_util.SerializedData.Companion.asData
+import net.typho.parsing_util.error.DataReadException
+import net.typho.parsing_util.error.ErrorStack
 
 open class PropertiesFormat(
     @JvmField
@@ -15,9 +16,13 @@ open class PropertiesFormat(
         }
     }
 
-    override fun createInput(data: Map<String, String>) = PropertiesValueInput("", data, ErrorStack(format = this))
+    override fun createInput(data: Map<String, String>) = PropertiesValueInput("", data, ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
-    override fun createOutput() = PropertiesValueOutput("", mutableMapOf(), ErrorStack(format = this))
+    override fun createOutput() = PropertiesValueOutput("", mutableMapOf(), ErrorStack().also {
+        it.attributes["format"] = this
+    })
 
     override fun read(input: SerializedData): Map<String, String> {
         val input = input.asString()
@@ -61,17 +66,15 @@ open class PropertiesFormat(
         val builder = StringBuilder()
 
         data.forEach { (key, value) ->
-            if (value != null) {
-                if (key.any { it.isWhitespace() }) {
-                    throw IllegalArgumentException("Property keys must not have whitespaces")
-                }
-
-                // Write line
-                builder.appendLine("$key$delimiterToWrite${DataFormat.writeEscapeSequences(value)}")
+            if (key.any { it.isWhitespace() }) {
+                throw IllegalArgumentException("Property keys must not have whitespaces")
             }
+
+            // Write line
+            builder.appendLine("$key$delimiterToWrite${DataFormat.writeEscapeSequences(value)}")
         }
 
-        return SerializedData.Companion(builder.toString())
+        return builder.toString().asData()
     }
 
     override fun toString(): String {

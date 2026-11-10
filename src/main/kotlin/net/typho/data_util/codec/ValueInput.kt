@@ -1,8 +1,8 @@
 package net.typho.data_util.codec
 
 import net.typho.data_util.DataReader
-import net.typho.data_util.error.DataReadException
-import net.typho.data_util.error.ErrorStack
+import net.typho.parsing_util.error.DataReadException
+import net.typho.parsing_util.error.ErrorStack
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 

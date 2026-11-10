@@ -2,8 +2,8 @@ package net.typho.data_util.xml
 
 import net.typho.data_util.DataWriter
 import net.typho.data_util.codec.ValueOutput
-import net.typho.data_util.error.ErrorStack
-import net.typho.data_util.error.push
+import net.typho.parsing_util.error.ErrorStack
+import net.typho.parsing_util.error.push
 import java.util.function.Consumer
 
 class XMLValueOutput(

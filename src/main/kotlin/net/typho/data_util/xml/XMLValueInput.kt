@@ -3,8 +3,8 @@ package net.typho.data_util.xml
 import net.typho.data_util.DataReader
 import net.typho.data_util.codec.ValueInput
 import net.typho.data_util.codec.ValueType
-import net.typho.data_util.error.ErrorStack
-import net.typho.data_util.error.push
+import net.typho.parsing_util.error.ErrorStack
+import net.typho.parsing_util.error.push
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 
