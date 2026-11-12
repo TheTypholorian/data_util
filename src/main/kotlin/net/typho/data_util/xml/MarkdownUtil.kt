@@ -1,6 +1,6 @@
 package net.typho.data_util.xml
 
-import net.typho.parsing_util.ParsingIterator
+import net.typho.parsing_util.StringParsingIterator
 import java.io.File
 
 object MarkdownUtil {
@@ -13,7 +13,7 @@ object MarkdownUtil {
 
     @JvmStatic
     fun markdownToHtml(input: String): List<XMLNode> {
-        val input = ParsingIterator(input, trim = false)
+        val input = StringParsingIterator(input, trim = false)
         val result = mutableListOf<XMLNode>()
         val buffer = StringBuilder()
 
