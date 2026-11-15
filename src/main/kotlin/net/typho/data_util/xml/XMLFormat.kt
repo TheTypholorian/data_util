@@ -27,11 +27,11 @@ open class XMLFormat(
     override fun read(input: SerializedData): XMLDocument {
         val input = StringParsingIterator(input.asString(), true)
 
-        fun readWord(metadataAllowed: Boolean): CharSequence {
+        fun readWord(metadataAllowed: Boolean): String {
             fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
 
             input.skipUntil { index, char -> !char.isWhitespace() }
-            return input.takeUntil { index, char ->
+            return (input.takeUntil { index, char ->
                 if (index == 0) {
                     if (!(isValidChar(char) || (char == '?' && metadataAllowed))) {
                         input.error("Invalid XML element name (starts with illegal character $char)")
@@ -41,7 +41,7 @@ open class XMLFormat(
                 } else {
                     !(isValidChar(char) || char in '0'..'9' || char == '-' || char == '.')
                 }
-            } ?: input.error("Unterminated XML word")
+            } ?: input.error("Unterminated XML word")).toString()
         }
 
         fun skipOnlyWhitespacesUntil(vararg expected: Char, error: (Char) -> Nothing): Char {
@@ -143,7 +143,7 @@ open class XMLFormat(
                 }
             }
 
-            return Tag(name, false, closure, attributes)
+            return Tag(name.toString(), false, closure, attributes)
         }
 
         fun readNode(start: Tag): XMLNode? {
@@ -237,9 +237,9 @@ open class XMLFormat(
         )
 
         @JvmStatic
-        fun readEntities(text: String, error: (key: String) -> Nothing, entities: Map<String, String> = defaultEntities): String {
+        fun readEntities(text: CharSequence, error: (key: String) -> Nothing, entities: Map<String, String> = defaultEntities): String {
             if (text.indexOf('&') == -1) {
-                return text
+                return text.toString()
             }
 
             return buildString {
@@ -263,7 +263,7 @@ open class XMLFormat(
         }
 
         @JvmStatic
-        fun writeEntities(text: String, entities: Map<String, String> = defaultEntities): String {
+        fun writeEntities(text: CharSequence, entities: Map<String, String> = defaultEntities): String {
             return buildString {
                 var index = 0
 

@@ -2,7 +2,7 @@ package net.typho.data_util.xml
 
 open class XMLText(
     @JvmField
-    var text: String
+    var text: CharSequence
 ) : XMLNode {
     override fun toXMLString(prettyPrint: Boolean) = XMLFormat.writeEntities(text)
 
