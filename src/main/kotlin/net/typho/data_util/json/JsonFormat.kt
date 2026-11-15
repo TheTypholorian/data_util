@@ -295,11 +295,7 @@ open class JsonFormat(
             }
 
             val key = (keyToken as? String) ?: throw DataReadException(
-                "Expected string but got $keyToken in object at line ${
-                    tokens.lineNumber(
-                        iterator.previousIndex()
-                    )
-                }"
+                "Expected string but got $keyToken in object at line ${tokens.lineNumber(iterator.previousIndex())}"
             )
 
             if (map.containsKey(key)) {
@@ -309,26 +305,14 @@ open class JsonFormat(
             val colonToken = iterator.next()
 
             if (colonToken !== TokenConstants.COLON) {
-                throw DataReadException(
-                    "Expected colon but got $colonToken in object at line ${
-                        tokens.lineNumber(
-                            iterator.previousIndex()
-                        )
-                    }"
-                )
+                throw DataReadException("Expected colon but got $colonToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
             }
 
             val valueIndex = iterator.nextIndex()
             val value = when (val valueToken = iterator.next()) {
                 TokenConstants.ARRAY_OPEN -> readList({ tokens.lineNumber(valueIndex) }, tokens, iterator)
                 TokenConstants.OBJECT_OPEN -> readObject({ tokens.lineNumber(valueIndex) }, tokens, iterator)
-                is TokenConstants -> throw DataReadException(
-                    "Expected an array, object, or primitive but got $valueToken in object at line ${
-                        tokens.lineNumber(
-                            iterator.previousIndex()
-                        )
-                    }"
-                )
+                is TokenConstants -> throw DataReadException("Expected an array, object, or primitive but got $valueToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
                 else -> valueToken
             }
 
@@ -337,13 +321,7 @@ open class JsonFormat(
             when (val commaToken = iterator.next()) {
                 TokenConstants.COMMA -> {}
                 TokenConstants.OBJECT_CLOSE -> return map
-                else -> throw DataReadException(
-                    "Expected comma or object end but got $commaToken in object at line ${
-                        tokens.lineNumber(
-                            iterator.previousIndex()
-                        )
-                    }"
-                )
+                else -> throw DataReadException("Expected comma or object end but got $commaToken in object at line ${tokens.lineNumber(iterator.previousIndex())}")
             }
         }
 
