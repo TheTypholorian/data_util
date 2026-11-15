@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.4.21"
-    id("net.typho.typho_publish") version "1.0.4"
+    id("net.typho.typho_publish") version "1.0.5"
 }
 
 group = "net.typho"
@@ -13,7 +13,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("reflect"))
-    implementation("net.typho:parsing_util:2.0.1")
+    implementation("net.typho:parsing_util:2.0.2")
 }
 
 kotlin {

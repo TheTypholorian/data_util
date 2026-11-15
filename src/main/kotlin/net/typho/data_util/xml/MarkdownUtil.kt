@@ -12,7 +12,7 @@ object MarkdownUtil {
     val emphasisChars = setOf('_', '*')
 
     @JvmStatic
-    fun markdownToHtml(input: String): List<XMLNode> {
+    fun markdownToHtml(input: CharSequence): List<XMLNode> {
         val input = StringParsingIterator(input, trim = false)
         val result = mutableListOf<XMLNode>()
         val buffer = StringBuilder()

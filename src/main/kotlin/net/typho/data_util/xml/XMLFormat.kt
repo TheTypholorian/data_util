@@ -1,9 +1,9 @@
 package net.typho.data_util.xml
 
 import net.typho.data_util.DataFormat
-import net.typho.parsing_util.StringParsingIterator
 import net.typho.parsing_util.SerializedData
 import net.typho.parsing_util.SerializedData.Companion.asData
+import net.typho.parsing_util.StringParsingIterator
 import net.typho.parsing_util.error.ErrorStack
 
 open class XMLFormat(
@@ -27,7 +27,7 @@ open class XMLFormat(
     override fun read(input: SerializedData): XMLDocument {
         val input = StringParsingIterator(input.asString(), true)
 
-        fun readWord(metadataAllowed: Boolean): String {
+        fun readWord(metadataAllowed: Boolean): CharSequence {
             fun isValidChar(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char == '_' || char == ':'
 
             input.skipUntil { index, char -> !char.isWhitespace() }

@@ -12,7 +12,7 @@ open class TomlFormat(
         return SequentialOutput.toMap(mutableMapOf())
     }
 
-    override fun read(input: String): Map<String, Any?> {
+    override fun read(input: CharSequence): Map<String, Any?> {
         var input = input
 
         // Remove comments, and replace multiline text with single line text
